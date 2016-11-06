@@ -172,6 +172,11 @@ static void addVASANCallerPass(const PassManagerBuilder &Builder,
    PM.add(createVASANCallerPass());
 }
 
+static void addVACheckerPass(const PassManagerBuilder &Builder,
+                                    PassManagerBase &PM) {
+   PM.add(createVACheckerPass());
+}
+
 static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
   const PassManagerBuilderWrapper &BuilderWrapper =
@@ -436,6 +441,12 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
  			  addVASANCallerPass);
    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
  			  addVASANCallerPass);
+  }
+	if (LangOpts.Sanitize.has(SanitizerKind::VAChecker)) {
+   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+ 			  addVACheckerPass);
+   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+ 			  addVACheckerPass);
   }
 
   if (LangOpts.Sanitize.hasOneOf(SanitizerKind::Efficiency)) {

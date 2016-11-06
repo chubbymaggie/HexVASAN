@@ -49,6 +49,7 @@ class SanitizerArgs {
   bool needsMsanRt() const { return Sanitizers.has(SanitizerKind::Memory); }
 	bool needsVASANRt() const { return Sanitizers.has(SanitizerKind::VASAN); }
 	bool needsVASANCallerRt() const { return Sanitizers.has(SanitizerKind::VASANCaller); }
+	bool needsVACheckerRt() const { return Sanitizers.has(SanitizerKind::VAChecker); }
   bool needsLsanRt() const {
     return Sanitizers.has(SanitizerKind::Leak) &&
            !Sanitizers.has(SanitizerKind::Address);

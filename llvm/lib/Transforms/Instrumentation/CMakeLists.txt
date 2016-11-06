@@ -13,6 +13,7 @@ add_llvm_library(LLVMInstrumentation
   EfficiencySanitizer.cpp
 	VASAN.cpp
 	VASANCaller.cpp
+	VAChecker.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

@@ -74,6 +74,7 @@ SANITIZER("signed-integer-overflow", SignedIntegerOverflow)
 SANITIZER("unreachable", Unreachable)
 SANITIZER("vla-bound", VLABound)
 SANITIZER("vptr", Vptr)
+
 SANITIZER("vasan", VASAN)
 SANITIZER("vasan-debug", VASANDebug)
 SANITIZER("vasan-log", VASANLog)
@@ -81,6 +82,10 @@ SANITIZER("vasan-log", VASANLog)
 SANITIZER("vasancaller", VASANCaller)
 SANITIZER("vasancaller-debug", VASANCallerDebug)
 SANITIZER("vasancaller-log", VASANCallerLog)
+
+SANITIZER("vasanchecker", VAChecker)
+SANITIZER("vasanchecker-debug", VACheckerDebug)
+SANITIZER("vasanchecker-log", VACheckerLog)
 
 // IntegerSanitizer
 SANITIZER("unsigned-integer-overflow", UnsignedIntegerOverflow)
@@ -109,7 +114,7 @@ SANITIZER_GROUP("undefined", Undefined,
                     FloatDivideByZero | IntegerDivideByZero | NonnullAttribute |
                     Null | ObjectSize | Return | ReturnsNonnullAttribute |
                     Shift | SignedIntegerOverflow | Unreachable | VLABound |
-                    Function | Vptr |VASAN | VASANDebug | VASANLog | VASANCaller | VASANCallerDebug | VASANCallerLog )
+                    Function | Vptr |VASAN | VASANDebug | VASANLog | VASANCaller | VASANCallerDebug | VASANCallerLog | VAChecker | VACheckerDebug | VACheckerLog  )
 
 // -fsanitize=undefined-trap is an alias for -fsanitize=undefined.
 SANITIZER_GROUP("undefined-trap", UndefinedTrap, Undefined)

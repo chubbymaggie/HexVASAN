@@ -83,20 +83,23 @@ struct VASANCaller : public ModulePass {
         for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
 
           if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
+							//errs() << "Hello I am here 000";
 
             if ((call_inst->getCalledFunction()) == nullptr) {
-
+								//errs() << "Hello I am here 000\n";
               if (PointerType *Ty = dyn_cast<PointerType>(
                       ((call_inst->getCalledValue())->getType()))) {
+									//errs() << "Hello I am here 111 \n";
                 if (FunctionType *FT =
                         dyn_cast<FunctionType>(Ty->getPointerElementType())) {
+												//errs() << "Hello I am here 222 \n";
                   if ((FT->isVarArg())) {
                     //===============================================
                     // Constant *id =ConstantInt::get(Type::getInt32Ty(Ctx),
                     // rand());
                     Constant *id =
                         ConstantInt::get(Type::getInt64Ty(Ctx), rand());
-                    
+                    //errs() << "Hello I am here 3333 \n";
                     std::string str;
                     llvm::raw_string_ostream rso(str);
 
@@ -115,7 +118,7 @@ struct VASANCaller : public ModulePass {
                                             std::ios_base::out); // FIXME the
                                                                  // path needs
                                                                  // to be fixed
-
+												//errs() << "Hello I am here 444 \n";
                         f_callsite << "0"
                                    << "\t ---------------"
                                    << "\t" << rso.str() << "\t indirect \t"

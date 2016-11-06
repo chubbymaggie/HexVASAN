@@ -340,6 +340,7 @@ void initializeWriteBitcodePassPass(PassRegistry &);
 void initializeXRayInstrumentationPass(PassRegistry &);
 void initializeVASANPass(PassRegistry&);
 void initializeVASANCallerPass(PassRegistry&);
+void initializeVACheckerPass(PassRegistry&);
 }
 
 #endif

@@ -118,6 +118,9 @@ ModulePass *createVASANPass();
 
 // Insert VASANCaller instrumenation
 ModulePass *createVASANCallerPass();
+// Insert VAChecker instrumenation
+ModulePass *createVACheckerPass();
+
 // Insert DataFlowSanitizer (dynamic data flow analysis) instrumentation
 ModulePass *createDataFlowSanitizerPass(
     const std::vector<std::string> &ABIListFiles = std::vector<std::string>(),
