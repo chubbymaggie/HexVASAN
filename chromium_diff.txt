@@ -1,0 +1,101 @@
+diff --git a/build/config/BUILD.gn b/build/config/BUILD.gn
+index fd05dfd..4aa8350 100644
+--- a/build/config/BUILD.gn
++++ b/build/config/BUILD.gn
+@@ -133,6 +133,10 @@ config("feature_flags") {
+   if (is_asan) {
+     defines += [ "ADDRESS_SANITIZER" ]
+   }
++  if (is_vasan) {
++    defines += [ "VARIADIC_SANITIZER" ]
++  }
++
+   if (is_lsan) {
+     defines += [
+       "LEAK_SANITIZER",
+diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
+index 4197228..6c31353 100644
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -1040,7 +1040,7 @@ config("default_warnings") {
+         "-Wno-nonportable-include-path",
+ 
+         # TODO(hans): https://crbug.com/637306
+-        "-Wno-address-of-packed-member",
++        #"-Wno-address-of-packed-member",
+       ]
+     }
+   }
+diff --git a/build/config/sanitizers/BUILD.gn b/build/config/sanitizers/BUILD.gn
+index 36bceec..a3b259b 100644
+--- a/build/config/sanitizers/BUILD.gn
++++ b/build/config/sanitizers/BUILD.gn
+@@ -264,7 +264,7 @@ config("common_sanitizer_flags") {
+   # Sanitizers need line table info for stack traces. They don't need type info
+   # or variable info, so we can leave that out to speed up the build.
+   if (using_sanitizer) {
+-    assert(is_clang, "sanitizers only supported with clang")
++    #assert(is_clang, "sanitizers only supported with clang")
+     cflags += [
+       "-gline-tables-only",
+ 
+@@ -503,6 +503,22 @@ config("ubsan_vptr_flags") {
+   }
+ }
+ 
++config("vasan_flags") {
++  if (is_vasan) {
++    cflags = [
++      "-fsanitize=vasan",
++      "-fsanitize=vasancaller",      
++      "-g",
++    ]
++    ldflags = [
++      "-fsanitize=vasan",
++      "-fsanitize=vasancaller",
++      "-g",
++    ]
++    defines = [ "VARIADIC_SANITIZER" ]
++
++  }
++}
+ all_sanitizer_configs = [
+   ":common_sanitizer_flags",
+   ":coverage_flags",
+@@ -517,6 +533,7 @@ all_sanitizer_configs = [
+   ":ubsan_null_flags",
+   ":ubsan_security_flags",
+   ":ubsan_vptr_flags",
++  ":vasan_flags",
+ ]
+ 
+ # This config is applied by default to all targets. It sets the compiler flags
+diff --git a/build/config/sanitizers/sanitizers.gni b/build/config/sanitizers/sanitizers.gni
+index b7053e7..d6b2dbc 100644
+--- a/build/config/sanitizers/sanitizers.gni
++++ b/build/config/sanitizers/sanitizers.gni
+@@ -9,6 +9,9 @@ declare_args() {
+   # Compile for Address Sanitizer to find memory bugs.
+   is_asan = false
+ 
++  #vasan
++  is_vasan = true
++
+   # Compile for Leak Sanitizer to find leaks.
+   is_lsan = false
+ 
+@@ -146,11 +149,11 @@ if (use_afl && sanitizer_coverage_flags == "") {
+ }
+ 
+ using_sanitizer =
+-    is_asan || is_lsan || is_tsan || is_msan || is_ubsan || is_ubsan_null ||
++    is_asan || is_lsan || is_tsan || is_msan || is_vasan || is_ubsan || is_ubsan_null ||
+     is_ubsan_vptr || is_ubsan_security || use_sanitizer_coverage
+ 
+-assert(!using_sanitizer || is_clang,
+-       "Sanitizers (is_*san) require setting is_clang = true in 'gn args'")
++#assert(!using_sanitizer || is_clang,
++#     "Sanitizers (is_*san) require setting is_clang = true in 'gn args'")
+ 
+ prebuilt_instrumented_libraries_available =
+     is_msan && (msan_track_origins == 0 || msan_track_origins == 2)
