@@ -34,10 +34,32 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
     // Callee Side: Function to match the type of the argument with the array
     // from top of the stack
-void check_index(uint32_t index, uint64_t type) {
+void check_index(char name[], uint32_t index, uint64_t type) {
  
   uint32_t index_8 = (index / 8);
   uint64_t temp_type = 0;
+  printf("Hey I am here\n");
+  if(mystack.top()->id == 1) {
+    
+      FILE *fp;
+      fp = fopen("/home/priyam/up_llvm/var/indirect_funcname.txt", "a+");
+      fprintf(fp, "-------------------------------------------------\n");
+      fprintf(fp, "Function Name %s\n", name);
+      fprintf(fp, "argument count %d\n", mystack.top()->arg_count);
+      fclose(fp);
+
+  }
+	
+    
+      FILE *fp;
+      fp = fopen("/home/priyam/up_llvm/var/indirect_funcname.txt", "a+");
+      fprintf(fp, " Simple Print------------------------------------------------\n");
+      fprintf(fp, "Function Name %s\n", name);
+      fprintf(fp, "argument count %d\n", mystack.top()->arg_count);
+      fclose(fp);
+
+ 
+
   
   if (index_8 < (mystack.top()->arg_count)) {
  

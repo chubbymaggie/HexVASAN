@@ -62,7 +62,7 @@ namespace {
 		      //F.getFunctionType()->dump();
 		    }*/
 
-			 for (Function::iterator BB = F->begin(), ET = F->end(); BB != ET; ++BB) {
+		/*	 for (Function::iterator BB = F->begin(), ET = F->end(); BB != ET; ++BB) {
 					BasicBlock& b = *BB;
 					for (BasicBlock::iterator I = b.begin(), E = b.end(); I != E; ++I) {
 		    
@@ -83,13 +83,13 @@ namespace {
 								std::string str;
                 llvm::raw_string_ostream rso(str);
 								call_inst->getFunctionType()->print(rso);
-								f_callsite.open("/home/priyam/up_llvm/data/nginx/csite.csv", std::ios_base::app | std::ios_base::out);
+								f_callsite.open("/home/priyam/up_llvm/data/spec/csite.csv", std::ios_base::app | std::ios_base::out);
 							  f_callsite << "Direct" << "\t" << callee->getName().str() << "\t" << call_inst->getNumArgOperands() << "\t" << rso.str() << "\t"<< file_name << "\t" << line_no << "\n";
 
 }
 }
 
-		          }
+		          } //if callee
 		          //indirect
 		          else{ 
 				//====================================
@@ -102,19 +102,47 @@ namespace {
 								std::string str;
                 llvm::raw_string_ostream rso(str);
 								call_inst->getFunctionType()->print(rso);
-								f_callsite.open("/home/priyam/up_llvm/data/nginx/vfun.csv", std::ios_base::app | std::ios_base::out);
+								f_callsite.open("/home/priyam/up_llvm/data/spec/vfun.csv", std::ios_base::app | std::ios_base::out);
 							  f_callsite << "Indirect" << "\t" << "No name" << "\t" << call_inst->getNumArgOperands() << "\t" << rso.str() << "\t" << file_name << "\t" << line_no <<"\n";
 
 }
 }
 
 		            
-		          }
+		          }//else
 		        }
 		      }
 		    }
-			 }
-				f_callsite.close();
+			 }*/
+// For collecting data on variadic function ..................
+      std::ofstream func_va;
+      FunctionType *FT = F->getFunctionType();
+      if (F->isVarArg()) {
+  
+        std::string str;
+        llvm::raw_string_ostream rso(str);
+        F->getFunctionType()->print(rso);
+        uint32_t line_no;
+        std::string file_name;
+        if (MDNode *md = F->getMetadata("dbg")) {
+          if (DISubprogram *dl = dyn_cast<DISubprogram>(md)) {
+            line_no = dl->getLine();
+            file_name = dl->getFilename();
+         // }
+       // }
+        func_va.open("/home/priyam/up_llvm/data/spec/vfun.csv", std::ios_base::app | std::ios_base::out);
+         func_va << F->getName().str() << "\t" << rso.str()
+                << "\t"  << file_name << "\t"
+                << line_no << "\n";
+         }
+         }
+         func_va.close();
+}
+
+//..........................................................			
+
+
+	f_callsite.close();
 			} 
       return false;
     }

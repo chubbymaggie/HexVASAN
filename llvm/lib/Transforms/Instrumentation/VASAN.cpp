@@ -322,6 +322,35 @@ struct VASAN : public ModulePass {
                                       } else
 
                                         bit_width = 140;
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+																	char p_array[100];
+																				std::sprintf(p_array, F->getName().str().c_str());
+																								                int maxLimit = 100;
+																						int arrayLimit = std::strlen(p_array);
+																	//errs()<< p_array << "\n";
+																			int count = 0;					   
+																			ArrayType* NArrayTy_0 = ArrayType::get(IntegerType::get(*Context, 8), maxLimit);
+																			GlobalVariable* pngvar_array_str = new GlobalVariable(*N_M,
+																					NArrayTy_0,
+																					false,
+																					GlobalValue::InternalLinkage,
+																					0, // has initializer, specified below
+																					"test_global");
+																			std::vector<Constant*> classpnum_elems;
+																			Constant *const_array_6;
+																			count = 0;
+																			for(int t=0; t<arrayLimit; t++) {
+																				count += 1;
+																				const_array_6 = ConstantInt::get(Type::getInt8Ty(*Context), p_array[t], true);
+																				classpnum_elems.push_back(const_array_6);
+																			}
+																			for(int t=count+1; t<=maxLimit; t++) {
+																				const_array_6 = ConstantInt::get(Type::getInt8Ty(*Context), 0, true);
+																				classpnum_elems.push_back(const_array_6);
+																			}
+																			Constant* classpnum_array_1 = ConstantArray::get(NArrayTy_0, classpnum_elems);
+																			pngvar_array_str->setInitializer(classpnum_array_1);
+////////////////////////////////////////////////////////////////////////////////////////
 
                                       IRBuilder<> builder(phi->getNextNode());
                                       PHINode *pnode = builder.CreatePHI(ty, 2);
@@ -330,13 +359,14 @@ struct VASAN : public ModulePass {
                                       IRBuilder<> Builder(
                                           (phi->getNextNode())->getNextNode());
                                       Value *Param[] = {
+                                          Builder.CreatePointerCast(pngvar_array_str, Int8PtrTy),
                                           pnode,
                                           ConstantInt::get(Int64Ty, bit_width)};
 			
 
                                       Constant *GCOVInit =
                                           N_M->getOrInsertFunction(
-                                              "check_index", VoidTy, ty,
+                                              "check_index", VoidTy, Int8PtrTy, ty,
                                               Int64Ty, nullptr);
                                       Builder.CreateCall(GCOVInit, Param);
                                       counter++;

@@ -97,8 +97,9 @@ struct VASANCaller : public ModulePass {
                     //===============================================
                     // Constant *id =ConstantInt::get(Type::getInt32Ty(Ctx),
                     // rand());
+										int indirect = 1;
                     Constant *id =
-                        ConstantInt::get(Type::getInt64Ty(Ctx), rand());
+                        ConstantInt::get(Type::getInt64Ty(Ctx), indirect);
                     //errs() << "Hello I am here 3333 \n";
                     std::string str;
                     llvm::raw_string_ostream rso(str);
@@ -224,8 +225,9 @@ struct VASANCaller : public ModulePass {
                     Function *callee = call_inst->getCalledFunction();
                     // Constant *id =ConstantInt::get(Type::getInt32Ty(Ctx),
                     // rand());
+                    int direct = 0;
                     Constant *id =
-                        ConstantInt::get(Type::getInt64Ty(Ctx), rand());
+                        ConstantInt::get(Type::getInt64Ty(Ctx), direct);
 
                     std::string str;
                     llvm::raw_string_ostream rso(str);
