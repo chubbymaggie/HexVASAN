@@ -33,25 +33,17 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <queue>id
+#include <queue>
 #include <stdio.h>
 #include <string.h>
 #include <string>
 #include <map>
 
-// std::map<std::string , long int> variadic_map;
+
 std::map<llvm::Value *, long int> variadic_map;
-// std::map<std::string, boost::uuids::uuid> variadic_map; //FIXME right now I
-// am putting a string, need to change later
 using namespace llvm;
 using std::string;
-// FIXME: Need to parse cmdline if we want to create csv files in output file
-// directory
-//=============================================
-// static cl::ParseCommandLineOptions
-// static cl::opt<bool> pathinf
 
-//==============================================
 
 namespace {
 
@@ -89,14 +81,7 @@ struct VASAN : public ModulePass {
 
     auto dm = M.getDataLayout();
     auto ty = dm.getIntPtrType(Ctx);
-    std::mt19937 gen; // FIXME Seed the engine with an unsigned int
-
-    // This part is for check all the variadic functions and storing all the
-    // necessary information in a csv file
-    // The information we are storing: i) unique id ii) Function name iii)
-    // Function Type iv) External Linkage v) File name
-    // vi) line no vii) users of the variadic function other than direct call
-    // viii) total number of uses
+    
     srand(time(nullptr));
 
     for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
@@ -125,7 +110,7 @@ struct VASAN : public ModulePass {
           }
         }
         std::string pathname =
-            "/home/priyam/up_llvm/data_m/vfunc/" + file_name +
+            "/home/priyam/up_llvm/yet_mozilla/vfunc/" + file_name +
             "_vfunc.tsv";
         func_va.open(
             pathname,
@@ -197,9 +182,7 @@ struct VASAN : public ModulePass {
           }
         }
       }
-      // errs() << "va_star count is "<< va_start_count << "\n";
-      //======================================checking ends for va_start
-      // count======================
+
       if (va_start_count < 2) {
         for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
           BasicBlock &b = *BB;
@@ -376,7 +359,7 @@ struct VASAN : public ModulePass {
                                     else {
 																			// errs() << "phi incoming null \n"; // FIXME
 																			FILE *fp;
-																			fp = fopen("/home/priyam/up_llvm/data_m/err_mozilla.txt", "a+");
+																			fp = fopen("/home/priyam/up_llvm/yet_mozilla/err_phinull.txt", "a+");
 																			fprintf(fp, "-------------------------------------------------\n");
 																			fprintf(fp, "Error: PHI incoming null \n");
 																			fclose(fp);

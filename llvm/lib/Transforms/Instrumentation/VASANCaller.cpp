@@ -77,55 +77,67 @@ struct VASANCaller : public ModulePass {
     Constant *ty_pointer = ConstantInt::get(Type::getInt64Ty(Ctx), 0);
 
     for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-      std::ofstream f_callsite;
+      
       for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
         BasicBlock &b = *BB;
         for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
 
           if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
-							//errs() << "Hello I am here 000";
+						bool indirect = false;
+						
+						auto getcallvalue = call_inst->getCalledValue();
+						while( auto bitcst = dyn_cast<ConstantExpr>(getcallvalue)) {
+						if (bitcst->isCast()) {
+							getcallvalue = bitcst->getOperand(0);
 
-            if ((call_inst->getCalledFunction()) == nullptr) {
-								//errs() << "Hello I am here 000\n";
-              if (PointerType *Ty = dyn_cast<PointerType>(
-                      ((call_inst->getCalledValue())->getType()))) {
-									//errs() << "Hello I am here 111 \n";
-                if (FunctionType *FT =
-                        dyn_cast<FunctionType>(Ty->getPointerElementType())) {
-												//errs() << "Hello I am here 222 \n";
+						}
+						}
+						if(isa<Function>(getcallvalue)) {
+							indirect = false;
+						}
+						else 
+							indirect = true;
+						
+						auto *getft = cast<PointerType>(getcallvalue->getType()); 
+						FunctionType *FT = cast<FunctionType>(getft->getPointerElementType());			   
                   if ((FT->isVarArg())) {
-                    //===============================================
-                    // Constant *id =ConstantInt::get(Type::getInt32Ty(Ctx),
-                    // rand());
-										int indirect = 1;
+     								
+										uint64_t random = rand();
                     Constant *id =
-                        ConstantInt::get(Type::getInt64Ty(Ctx), indirect);
-                    //errs() << "Hello I am here 3333 \n";
+                        ConstantInt::get(Type::getInt64Ty(Ctx), random);
+
                     std::string str;
                     llvm::raw_string_ostream rso(str);
 
                     if (MDNode *md = call_inst->getMetadata("dbg")) {
                       if (DILocation *dl = dyn_cast<DILocation>(md)) {
                         auto line_no = dl->getLine();
-                        // auto col_no = dl->getCol();
                         std::string file_name = dl->getFilename();
 
                         call_inst->getFunctionType()->print(rso);
                         std::string pathname =
-                            "/home/priyam/up_llvm/data_m/callsite/" +
+                            "/home/priyam/up_llvm/yet_mozilla" +
                             file_name + "_csite.tsv"; //FIXME
+												std::ofstream f_callsite;
                         f_callsite.open(pathname,
                                         std::ios_base::app |
-                                            std::ios_base::out); // FIXME the
-                                                                 // path needs
-                                                                 // to be fixed
-												//errs() << "Hello I am here 444 \n";
-                        f_callsite << "0"
+                                            std::ios_base::out); 
+												std::string _dir;
+												if(indirect){
+													_dir = "indirect";
+												}
+												else {
+														_dir = "direct";
+												}
+											
+                        f_callsite << random
                                    << "\t ---------------"
-                                   << "\t" << rso.str() << "\t indirect \t"
+                                   << "\t" << rso.str() << "\t" <<  _dir << "\t"
                                    << call_inst->getNumArgOperands() << "\t"
                                    << line_no << "\t" << file_name << "\t"
                                    << "\n";
+ 
+											f_callsite.close();
                       }
                     }
 
@@ -137,11 +149,6 @@ struct VASANCaller : public ModulePass {
                                                            // here the numparams
                     std::vector<Constant *> arg_types;
                     int i = 1;
-                    /* The following loop saves the types of the arguments,
-                     * except the
-                     * fixed parameters, and FType->getNumParams gives the
-                     * number of
-                     * fixed parameters */
                     for (Value *arg_value : call_inst->arg_operands()) {
 
                       if (arg_value->getType()->isPointerTy()) {
@@ -184,8 +191,7 @@ struct VASANCaller : public ModulePass {
 
                     auto struct_ty = llvm::StructType::create(
                         Ctx, {Int64Ty, Int32Ty, Int64PtrTy}); //FIXME
-										/*auto struct_ty = llvm::StructType::create(
-                        Ctx, {Int32Ty, Int64PtrTy});*/
+							
                     GlobalVariable *struct_node = new GlobalVariable(
                         M, struct_ty, true, GlobalValue::InternalLinkage,
                         nullptr, "Struct_variable");
@@ -194,9 +200,6 @@ struct VASANCaller : public ModulePass {
                     struct_node->setInitializer(ConstantStruct::get(
                         struct_ty, {id, arg_c, array_ty_int})); //FIXME
 
-										/*struct_node->setInitializer(ConstantStruct::get(
-                        struct_ty, {arg_c, array_ty_int}));*/
-
                     IRBuilder<> Builder(call_inst);
                     Value *Param[] = {struct_node};
                     Constant *GInit = N_M->getOrInsertFunction(
@@ -212,141 +215,13 @@ struct VASANCaller : public ModulePass {
 
                     /// should end here
                   }
-                }
-              }
-            } // getcalled nullptr ends here
-            else {
-              if (PointerType *Ty = dyn_cast<PointerType>(
-                      ((call_inst->getCalledValue())->getType()))) {
-                if (FunctionType *FT =
-                        dyn_cast<FunctionType>(Ty->getPointerElementType())) {
-                  if ((FT->isVarArg())) {
-                    //========================================================================================
-                    Function *callee = call_inst->getCalledFunction();
-                    // Constant *id =ConstantInt::get(Type::getInt32Ty(Ctx),
-                    // rand());
-                    int direct = 0;
-                    Constant *id =
-                        ConstantInt::get(Type::getInt64Ty(Ctx), direct);
-
-                    std::string str;
-                    llvm::raw_string_ostream rso(str);
-
-                    if (MDNode *md = call_inst->getMetadata("dbg")) {
-                      if (DILocation *dl = dyn_cast<DILocation>(md)) {
-                        auto line_no = dl->getLine();
-                        // auto col_no = dl->getCol();
-                        std::string file_name = dl->getFilename();
-
-                        callee->getFunctionType()->print(rso);
-                        std::string pathname =
-                            "/home/priyam/up_llvm/data_m/callsite/" +
-                            file_name + "_csite.tsv";
-                        f_callsite.open(pathname, std::ios_base::app |
-                                                      std::ios_base::out);
-
-                        f_callsite << variadic_map.find(callee)->second << "\t"
-                                   << callee->getName().str() << "\t"
-                                   << rso.str() << "\t direct \t"
-                                   << call_inst->getNumArgOperands() << "\t "
-                                   << line_no << "\t" << file_name << "\t"
-                                   << "\n";
-                        // f_callsite.close();
-                      }
-                    }
-
-                    //========================================================================================
-
-                    ArrayType *arr_type = ArrayType::get(
-                        Int64Ty, (call_inst->getNumArgOperands()));
-                    std::vector<Constant *> arg_types;
-                    int i = 1;
-                    /* The following loop saves the types of the arguments,
-                     * except the
-                     * fixed parameters, and FType->getNumParams gives the
-                     * number of
-                     * fixed parameters */
-                    for (Value *arg_value : call_inst->arg_operands()) {
-
-                      // if (i > FT->getNumParams()) { //FIXME
-
-                      if (arg_value->getType()->isPointerTy()) {
-                        arg_types.push_back(ty_pointer);
-                      } else if (arg_value->getType()->isFloatingPointTy()) {
-                        arg_types.push_back(ty_float);
-                      } else if (arg_value->getType()->isIntegerTy()) {
-                        if (arg_value->getType()->getIntegerBitWidth() == 128) {
-                          arg_types.push_back(ty_i28);
-                        } else if (arg_value->getType()->getIntegerBitWidth() ==
-                                   64) {
-
-                          arg_types.push_back(ty_i64);
-                        } else if (arg_value->getType()->getIntegerBitWidth() ==
-                                   32) {
-
-                          arg_types.push_back(ty_i32);
-                        } else if (arg_value->getType()->getIntegerBitWidth() ==
-                                   16) {
-
-                          arg_types.push_back(ty_i16);
-                        } else if (arg_value->getType()->getIntegerBitWidth() ==
-                                   8) {
-                          arg_types.push_back(ty_i8);
-                        } else
-                          arg_types.push_back(ty_default);
-                      }
-                      //}
-                      i++;
-                    }
-
-                    Constant *arg_c =
-                        ConstantInt::get(Type::getInt32Ty(Ctx),
-                                         ((call_inst->getNumArgOperands())));
-                    Constant *Init_array =
-                        ConstantArray::get(arr_type, arg_types);
-                    GlobalVariable *type_array = new GlobalVariable(
-                        M, arr_type, true, GlobalValue::InternalLinkage,
-                        Init_array, "Type_Array");
-
-                    auto struct_ty = llvm::StructType::create(
-                        Ctx, {Int64Ty, Int32Ty, Int64PtrTy}); // FIXME id need to taken care of 
-
-										/*auto struct_ty = llvm::StructType::create(
-                        Ctx, {Int32Ty, Int64PtrTy});*/
-
-                    GlobalVariable *struct_node = new GlobalVariable(
-                        M, struct_ty, true, GlobalValue::InternalLinkage,
-                        nullptr, "Struct_variable");
-                    Constant *array_ty_int =
-                        ConstantExpr::getPointerCast(type_array, Int64PtrTy);
-                    struct_node->setInitializer(ConstantStruct::get(
-                        struct_ty, {id, arg_c, array_ty_int}));  // FIXME id need to taken care of 
-										/*struct_node->setInitializer(ConstantStruct::get(
-                        struct_ty, {arg_c, array_ty_int}));*/
-
-                    IRBuilder<> Builder(call_inst);
-                    Value *Param[] = {struct_node};
-                    Constant *GInit = N_M->getOrInsertFunction(
-                        "info_push", VoidTy, struct_node->getType(), nullptr);
-                    Builder.CreateCall(GInit, Param);
-
-                    int value = 0;
-                    IRBuilder<> builder(call_inst->getNextNode());
-                    Value *Param2 = {ConstantInt::get(Int32Ty, value)};
-                    Constant *GFin = N_M->getOrInsertFunction(
-                        "info_pop", VoidTy, Int32Ty, nullptr);
-                    builder.CreateCall(GFin, Param2);
-
-                    /// should end here
-                  }
-                }
-              }
-            }
+        
           }
         }
       }
-      f_callsite.close();
-    }
+      //f_callsite.close();
+    
+   }
 
     return false;
   }

@@ -26,11 +26,9 @@
 #include <stdint.h>
 
 bool destructor_register = false;
-std::stack<callerside_info*> mystack;
-std::map<int, int>callsite_cnt;
-std::map<int, int>vfunc_cnt;
-
-char *memblock;
+thread_local std::stack<callerside_info*> mystack;
+thread_local std::map<int, int>callsite_cnt;
+thread_local std::map<int, int>vfunc_cnt;
 
 
 using namespace std;
@@ -45,7 +43,7 @@ void destroy_vasancaller() {
 	
 	//std::string pathname = "/home/priyam/up_llvm/data/runtime_csite" + getpid() + ".csv";
 	char pathname[100];
-	std::sprintf(pathname,"/home/priyam/up_llvm/data_m/runtime_csite%d.csv", getpid() ); 
+	std::sprintf(pathname,"/home/priyam/up_llvm/yet_mozilla/runtime_csite%d.csv", getpid() ); 
 	func_csite.open(pathname,std::ios_base::app | std::ios_base::out);
 
 	for ( std::map<int, int>::const_iterator it = callsite_cnt.begin(); it != callsite_cnt.end(); it++) {
@@ -59,7 +57,7 @@ void destroy_vasancaller() {
 
 	std::ofstream func_va;
   char pathname_va[100];
-	std::sprintf(pathname_va, "/home/priyam/up_llvm/data_m/runtime_vfunc%d.csv", getpid() ); 
+	std::sprintf(pathname_va, "/home/priyam/up_llvm/yet_mozilla/runtime_vfunc%d.csv", getpid() ); 
 	func_va.open(pathname_va, std::ios_base::app | std::ios_base::out);
 
 	for ( std::map<int, int>::const_iterator it2 = vfunc_cnt.begin(); it2 != vfunc_cnt.end(); it2++) {
@@ -75,19 +73,6 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
 //CallerSide: Function to push the pointer in the stack
 void info_push(callerside_info* x) {
-// to increase the counter of a callsite
-	/*struct stat sb;
-        //fstat(fd, &sb);
-	if(memblock == NULL){
-	memblock = (char *)mmap (0, 4096, PROT_READ, MAP_ANONYMOUS , 0, 0);
-	printf("mmap successful");
-	}*/
-	/*if (memblock == MAP_FAILED) {
-        	printf("Error in mmap\n");
-	}	*/
-	
-
-       //mprotect (memblock, 4096, PROT_WRITE);
 
 	if(!destructor_register) {
 
@@ -111,8 +96,4 @@ void info_pop(int i) {
 		mystack.pop();
 	
 }
-
-
-
-
 
