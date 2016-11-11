@@ -20,13 +20,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <mutex>
 
 #define DEBUG
 uint64_t id;
 
 extern thread_local std::stack<callerside_info *> mystack;
-extern thread_local std::map<int, int> callsite_cnt;
-extern thread_local std::map<int, int>vfunc_cnt;
+extern std::map<int, int> callsite_cnt;
+extern std::map<int, int>vfunc_cnt;
+std::mutex callee_mutex;
 
 using namespace std;
 
@@ -34,9 +36,10 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
     // Callee Side: Function to match the type of the argument with the array
     // from top of the stack
-void check_index(char name[], uint32_t index, uint64_t type) {
+void check_index(char name[], uint64_t index, uint64_t type) {
  
-  uint32_t index_8 = (index / 8);
+	std::lock_guard<std::mutex> guard(callee_mutex);
+  uint64_t index_8 = (index / 8);
   uint64_t temp_type = 0;
   //printf("Hey I am here\n");  
   if (index_8 < (mystack.top()->arg_count)) {
@@ -74,6 +77,7 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
     // Callee Side: Function to reset the counter
     void
     assign_id(int i) {
+		std::lock_guard<std::mutex> guard(callee_mutex);
     vfunc_cnt[i]++;
 
 }

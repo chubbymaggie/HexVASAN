@@ -11,7 +11,7 @@
 
 struct callerside_info {
 	uint64_t id;
-	uint32_t arg_count;
+	uint64_t arg_count;
 	uint64_t*  arg_array;
 	
 };

@@ -63,6 +63,8 @@ struct VASAN : public ModulePass {
   bool check_incoming2(PHINode *phi, Value **add_five, Type *ty,
                        Value *forty_eight, Value *bit_inst2);
 
+  uint32_t file_rand = rand();
+	std::string file_r = std::to_string(file_rand);
   virtual bool runOnModule(Module &M) {
 
     int counter = 0;
@@ -92,7 +94,35 @@ struct VASAN : public ModulePass {
       if (Function *Fnew = dyn_cast<Function>(F)) {
         funcptr = dyn_cast<Value>(Fnew);
       }
+       std::string addrtaken = "no";
+				std::string definition = "definition";
+      if(F->empty())
+			{
+				definition = "declaration";
+			}
+			else definition = "definition";
+
       if (F->isVarArg()) {
+
+			/*================================================*/
+				uint32_t user_count = 0;
+				uint32_t user_call_count = 0;
+
+        for (User *func_users : F->users()) {
+          user_count++;
+					if(CallInst *cist = dyn_cast<CallInst>(func_users)) {
+						user_call_count++;						
+						
+					}
+	      }
+				if(user_count == user_call_count) {
+					addrtaken = "no";
+				}
+				else {
+					addrtaken = "yes";
+				}		
+
+				/*================================================*/
 
         long int unique_id = rand();
         variadic_map.insert(
@@ -110,23 +140,15 @@ struct VASAN : public ModulePass {
           }
         }
         std::string pathname =
-            "/home/priyam/up_llvm/yet_mozilla/vfunc/" + file_name +
-            "_vfunc.tsv";
+            "/home/priyam/up_llvm/yet_mozilla/vfun/" + file_r + "vfunc.tsv";
         func_va.open(
             pathname,
             std::ios_base::app |
                 std::ios_base::out); // FIXME the path needs to be fixed
 
-        func_va << unique_id << "\t" << F->getName().str() << "\t" << rso.str()
-                << "\t" << F->getLinkage() << "\t" << file_name << "\t"
-                << line_no;
-        uint32_t user_count = 0;
-        for (User *f_user : F->users()) {
-          user_count++;
-        }
+        func_va << unique_id << "\t" << F->getName().str() << "\t" << rso.str() << "\t" << F->getLinkage() << "\t" << file_name << "\t" << line_no;
 
-        func_va << "\t" << user_count;
-        func_va << "\n";
+        func_va << "\t" << addrtaken <<  "\t"<< definition << "\n";
         // for instrumenting the id in the runtime ...
         for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
           BasicBlock &b = *BB;
