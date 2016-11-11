@@ -26,8 +26,8 @@
 uint64_t id;
 
 extern thread_local std::stack<callerside_info *> mystack;
-extern std::map<int, int> callsite_cnt;
-extern std::map<int, int>vfunc_cnt;
+//extern std::map<int, int> callsite_cnt;
+//extern std::map<int, int>vfunc_cnt;
 std::mutex callee_mutex;
 
 using namespace std;
@@ -78,6 +78,6 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
     void
     assign_id(int i) {
 		std::lock_guard<std::mutex> guard(callee_mutex);
-    vfunc_cnt[i]++;
+   // vfunc_cnt[i]++;
 
 }

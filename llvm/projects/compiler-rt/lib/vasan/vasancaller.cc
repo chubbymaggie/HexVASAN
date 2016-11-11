@@ -31,8 +31,8 @@
 #define gettid() syscall(SYS_gettid)
 bool destructor_register = false;
 thread_local std::stack<callerside_info*> mystack;
-std::map<int, int>callsite_cnt;
-std::map<int, int>vfunc_cnt;
+//std::map<int, int>callsite_cnt;
+//std::map<int, int>vfunc_cnt;
 std::mutex caller_mutex;
 
 using namespace std;
@@ -42,7 +42,7 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
 
 //__attribute__((destructor))
-void destroy_vasancaller() {
+/*void destroy_vasancaller() {
   std::ofstream func_csite;
 	
 	std::lock_guard<std::mutex> guard(caller_mutex);
@@ -71,7 +71,7 @@ void destroy_vasancaller() {
 	}
   func_va.close();
 
-}
+}*/
 
 extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
@@ -80,14 +80,14 @@ void info_push(callerside_info* x) {
 
 	std::lock_guard<std::mutex> guard(caller_mutex);
 
-	if(!destructor_register) {
+/*	if(!destructor_register) {
 
 		destructor_register = true;
 		atexit(destroy_vasancaller);
 		
 	}
 	callsite_cnt[x->id]++;
-
+*/
 	mystack.push(x);
  	
 }

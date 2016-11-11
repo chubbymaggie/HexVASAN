@@ -110,6 +110,13 @@ struct VASAN : public ModulePass {
 
         for (User *func_users : F->users()) {
           user_count++;
+
+					ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
+					while (bc != nullptr && bc->isCast()) {
+            func_users = *bc->users().begin();
+            bc = dyn_cast<ConstantExpr>(func_users);
+					}
+
 					if(CallInst *cist = dyn_cast<CallInst>(func_users)) {
 						user_call_count++;						
 						
@@ -328,6 +335,7 @@ struct VASAN : public ModulePass {
 
                                         bit_width = 140;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+																	if(bit_width != 130) {
 																	char p_array[100];
 																				std::sprintf(p_array, F->getName().str().c_str());
 																								                int maxLimit = 100;
@@ -376,6 +384,7 @@ struct VASAN : public ModulePass {
                                       Builder.CreateCall(GCOVInit, Param);
                                       counter++;
                                       flag_va_intrinsic++;
+																		}
 
                                     } // check for the incoming phi ends
                                     else {
