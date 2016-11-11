@@ -50,7 +50,9 @@ struct VASANCaller : public ModulePass {
   bool doInitialization(Module &M) { return true; }
 
   bool doFinalization(Module &M) { return false; }
-
+  
+	uint32_t file_rand = rand();
+	std::string file_r = std::to_string(file_rand);
   virtual bool runOnModule(Module &M) {
 
     Module *N_M;
@@ -116,8 +118,7 @@ struct VASANCaller : public ModulePass {
 
                         call_inst->getFunctionType()->print(rso);
                         std::string pathname =
-                            "/home/priyam/up_llvm/yet_mozilla" +
-                            file_name + "_csite.tsv"; //FIXME
+                            "/home/priyam/up_llvm/yet_mozilla/callsite/" + file_r + "callsite.tsv"; //FIXME
 												std::ofstream f_callsite;
                         f_callsite.open(pathname,
                                         std::ios_base::app |
@@ -181,7 +182,7 @@ struct VASANCaller : public ModulePass {
                     }
 
                     Constant *arg_c =
-                        ConstantInt::get(Type::getInt32Ty(Ctx),
+                        ConstantInt::get(Type::getInt64Ty(Ctx),
                                          ((call_inst->getNumArgOperands())));
                     Constant *Init_array =
                         ConstantArray::get(arr_type, arg_types);
@@ -190,7 +191,7 @@ struct VASANCaller : public ModulePass {
                         Init_array, "Type_Array");
 
                     auto struct_ty = llvm::StructType::create(
-                        Ctx, {Int64Ty, Int32Ty, Int64PtrTy}); //FIXME
+                        Ctx, {Int64Ty, Int64Ty, Int64PtrTy}); //FIXME
 							
                     GlobalVariable *struct_node = new GlobalVariable(
                         M, struct_ty, true, GlobalValue::InternalLinkage,

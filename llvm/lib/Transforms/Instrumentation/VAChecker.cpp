@@ -57,12 +57,8 @@ namespace {
       
 			for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
 				std::ofstream f_callsite;
-		    /*if(F->isVarArg()){
-		      	errs() << "VAChecker Function: " << F->getName() << " ";
-		      //F.getFunctionType()->dump();
-		    }*/
 
-		/*	 for (Function::iterator BB = F->begin(), ET = F->end(); BB != ET; ++BB) {
+		 for (Function::iterator BB = F->begin(), ET = F->end(); BB != ET; ++BB) {
 					BasicBlock& b = *BB;
 					for (BasicBlock::iterator I = b.begin(), E = b.end(); I != E; ++I) {
 		    
@@ -113,7 +109,7 @@ namespace {
 		        }
 		      }
 		    }
-			 }*/
+			 }
 // For collecting data on variadic function ..................
       std::ofstream func_va;
       FunctionType *FT = F->getFunctionType();
