@@ -31,19 +31,19 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #include <algorithm>
+
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include <map>
 
 std::map<llvm::AllocaInst *, llvm::AllocaInst *> list_map;
 std::map<llvm::Value *, long int> variadic_map;
 using namespace llvm;
 using std::string;
-
 
 namespace {
 
@@ -52,7 +52,7 @@ struct VASAN : public ModulePass {
   static char ID;
   LLVMContext *Context;
 
-  VASAN() : ModulePass(ID) {} 
+  VASAN() : ModulePass(ID) {}
 
   bool doInitialization(Module &M) { return true; }
 
@@ -66,7 +66,7 @@ struct VASAN : public ModulePass {
   uint64_t hashing(uint64_t OldHash, uint64_t NewData);
 
   uint32_t file_rand = rand();
-	std::string file_r = std::to_string(file_rand);
+  std::string file_r = std::to_string(file_rand);
   virtual bool runOnModule(Module &M) {
 
     int counter = 0;
@@ -78,62 +78,56 @@ struct VASAN : public ModulePass {
     Type *VoidTy = Type::getVoidTy(Ctx);
     Type *Int64Ty = Type::getInt64Ty(Ctx);
     Type *Int32Ty = Type::getInt32Ty(Ctx);
-    Type *Int8Ty = Type::getInt8Ty(Ctx);
     Type *Int8PtrTy = PointerType::getUnqual(Type::getInt8Ty(Ctx));
     Type *Int32PtrTy = PointerType::getUnqual(Type::getInt32Ty(Ctx));
-    Type *Int64PtrTy = PointerType::getUnqual(Type::getInt64Ty(Ctx));
 
     auto dm = M.getDataLayout();
     auto ty = dm.getIntPtrType(Ctx);
     Value *index_arg = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
     srand(time(nullptr));
-		std::string file_name;
+    std::string file_name;
 
     for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
       std::ofstream func_va;
       Value *funcptr;
-      FunctionType *FT = F->getFunctionType();
 
       if (Function *Fnew = dyn_cast<Function>(F)) {
         funcptr = dyn_cast<Value>(Fnew);
       }
-       std::string addrtaken = "no";
-				std::string definition = "definition";
-      if(F->empty())
-			{
-				definition = "declaration";
-			}
-			else definition = "definition";
+      std::string addrtaken = "no";
+      std::string definition = "definition";
+      if (F->empty()) {
+        definition = "declaration";
+      } else
+        definition = "definition";
 
       if (F->isVarArg()) {
-    
-			/*================================================*/
-				uint32_t user_count = 0;
-				uint32_t user_call_count = 0;
+
+        /*================================================*/
+        uint32_t user_count = 0;
+        uint32_t user_call_count = 0;
 
         for (User *func_users : F->users()) {
           user_count++;
 
-					ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
-					while (bc != nullptr && bc->isCast()) {
+          ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
+          while (bc != nullptr && bc->isCast()) {
             func_users = *bc->users().begin();
             bc = dyn_cast<ConstantExpr>(func_users);
-					}
+          }
 
-					if(CallInst *cist = dyn_cast<CallInst>(func_users)) {
-						user_call_count++;						
-						
-					}
-	      }
-				if(user_count == user_call_count) {
-					addrtaken = "no";
-				}
-				else {
-					addrtaken = "yes";
-				}		
+          if (CallInst *cist = dyn_cast<CallInst>(func_users)) {
+            user_call_count++;
+          }
+        }
+        if (user_count == user_call_count) {
+          addrtaken = "no";
+        } else {
+          addrtaken = "yes";
+        }
 
-				/*================================================*/
-			
+        /*================================================*/
+
         long int unique_id = rand();
         variadic_map.insert(
             std::pair<llvm::Value *, long int>(funcptr, unique_id));
@@ -142,24 +136,14 @@ struct VASAN : public ModulePass {
         F->getFunctionType()->print(rso);
         std::queue<User *> func_user;
         uint32_t line_no;
-       
+
         if (MDNode *md = F->getMetadata("dbg")) {
           if (DISubprogram *dl = dyn_cast<DISubprogram>(md)) {
             line_no = dl->getLine();
             file_name = dl->getFilename();
           }
         }
-       
-       /* std::string pathname =
-            "/home/priyam/up_llvm/feb_2017/vfun/" + file_r + "vfunc.tsv";
-        func_va.open(
-            pathname,
-            std::ios_base::app |
-                std::ios_base::out); // FIXME the path needs to be fixed
 
-        func_va << unique_id << "\t" << F->getName().str() << "\t" << rso.str() << "\t" << F->getLinkage() << "\t" << file_name << "\t" << line_no;
-
-        func_va << "\t" << addrtaken <<  "\t"<< definition << "\n";*/
         if (getenv("VASAN_LOG_PATH") != nullptr) {
           char *home = getenv("VASAN_LOG_PATH");
 
@@ -173,7 +157,7 @@ struct VASAN : public ModulePass {
 
           func_va << "\t" << addrtaken << "\t" << definition << "\n";
         }
-        // for instrumenting the id in the runtime ...
+
         for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
           BasicBlock &b = *BB;
           for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
@@ -184,7 +168,7 @@ struct VASAN : public ModulePass {
 
               if ((ft != nullptr) &&
                   ((ft->getIntrinsicID() == llvm::Intrinsic::vastart))) {
-								//errs() << "Here 4444444444\n";
+
                 IRBuilder<> Builder(call_inst);
                 Value *Param[] = {ConstantInt::get(Int64Ty, unique_id)};
                 Constant *GInit = N_M->getOrInsertFunction("assign_id", VoidTy,
@@ -194,7 +178,6 @@ struct VASAN : public ModulePass {
             }
           }
         }
-        // for instrumenting the unique id in the runtime...
       }
       func_va.close();
     }
@@ -204,16 +187,25 @@ struct VASAN : public ModulePass {
 
       FunctionType *FT = F->getFunctionType();
       Value *bit_inst2 = 0;
-      int va_start_count = 0;
+
       int flag_va_intrinsic = 0;
 
       for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
         BasicBlock &b = *BB;
-				
-        //========================================checking for vastart
-        // count===========================
         for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
 
+          int bit_width = 0;
+          Value *index_reg = 0;
+          Value *base;
+          Value *add_five = 0;
+
+          Value *zero = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
+          Value *one = ConstantInt::get(Type::getInt32Ty(Ctx), 1);
+          Value *eight = ConstantInt::get(Type::getInt32Ty(Ctx), 8);
+          Value *forty_eight = ConstantInt::get(Type::getInt32Ty(Ctx), 48);
+
+          Value *Idxs[] = {ConstantInt::get(Int32Ty, 0),
+                           ConstantInt::get(Int32Ty, 2)};
           if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
 
             Function *ft = call_inst->getCalledFunction();
@@ -221,72 +213,25 @@ struct VASAN : public ModulePass {
             if ((ft != nullptr) &&
                 ((ft->getIntrinsicID() == llvm::Intrinsic::vastart) ||
                  (ft->getIntrinsicID() == llvm::Intrinsic::vaend))) {
+
               if (ft->getIntrinsicID() == llvm::Intrinsic::vastart) {
-                va_start_count = va_start_count + 1;
-              }
-            }
-          }
-        }
-      }
+                if (BitCastInst *binst =
+                        dyn_cast<BitCastInst>(call_inst->getArgOperand(0))) {
 
-     // if (va_start_count < 2) {
-        for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
-          BasicBlock &b = *BB;
-          for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
-						
-            int bit_width = 0;
-            Value *index_reg = 0;
-            Value *base;
-            Value *add_five = 0;
+                  IRBuilder<> builder(call_inst->getNextNode());
+                  auto gep_b = builder.CreateGEP(binst->getOperand(0), Idxs);
+                  base = builder.CreateLoad(gep_b);
+                  bit_inst2 = builder.CreatePtrToInt(base, ty);
+                  assert(bit_inst2);
 
-            Value *zero = ConstantInt::get(Type::getInt32Ty(Ctx), 0);	
-            Value *one = ConstantInt::get(Type::getInt32Ty(Ctx), 1);
-            Value *five = ConstantInt::get(Type::getInt32Ty(Ctx), 5);
-            Value *eight = ConstantInt::get(Type::getInt32Ty(Ctx), 8);
-            Value *forty_eight = ConstantInt::get(Type::getInt32Ty(Ctx), 48);
+                  // here the 1st operand of the gep instruction is tha
+                  // va_list
+                  // I am looking for
+                  if (GetElementPtrInst *gepinst =
+                          dyn_cast<GetElementPtrInst>((binst->getOperand(0)))) {
+                    std::queue<User *> queue_user;
 
-            Value *Idxs[] = {ConstantInt::get(Int32Ty, 0),
-                             ConstantInt::get(Int32Ty, 2)};
-            if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
-
-              Function *ft = call_inst->getCalledFunction();
-
-              if ((ft != nullptr) &&
-                  ((ft->getIntrinsicID() == llvm::Intrinsic::vastart) ||
-                   (ft->getIntrinsicID() == llvm::Intrinsic::vaend))) {
-
-                if (ft->getIntrinsicID() == llvm::Intrinsic::vastart) {
-									//errs() << " here 6666666666666666 \n";
-                  /*IRBuilder<> Builder(call_inst);
-                  Value *Param[] = {ConstantInt::get(Int64Ty, counter)};
-                  Constant *GInit = N_M->getOrInsertFunction(
-                      "assign_id", VoidTy, Int64Ty, nullptr);
-                  Builder.CreateCall(GInit, Param);*/
-
-                  /* after */
-                  // here checking for the operand that means [arraydecay1] is a
-                  // bit inst or not, after that I have to look for the user of
-                  // this and look for the list of array and then the user of
-                  // the
-                  // list<FIXME>
-                  if (BitCastInst *binst =
-                          dyn_cast<BitCastInst>(call_inst->getArgOperand(0))) {
-
-                    IRBuilder<> builder(call_inst->getNextNode());
-                    auto gep_b = builder.CreateGEP(binst->getOperand(0), Idxs);
-                    base = builder.CreateLoad(gep_b);
-                    bit_inst2 = builder.CreatePtrToInt(base, ty);
-                    assert(bit_inst2);
-
-                    // here the 1st operand of the gep instruction is tha
-                    // va_list
-                    // I am looking for
-                    if (GetElementPtrInst *gepinst =
-                            dyn_cast<GetElementPtrInst>(
-                                (binst->getOperand(0)))) {
-                      std::queue<User *> queue_user;
-                    
-                      AllocaInst *a_inst;
+                    AllocaInst *a_inst;
                     if (a_inst = dyn_cast<AllocaInst>(
                             gepinst->getOperand(0))) { // checking for the list
                       int flag_ainst = 0;
@@ -294,14 +239,14 @@ struct VASAN : public ModulePass {
                                     llvm::AllocaInst *>::const_iterator it =
                                list_map.begin();
                            it != list_map.end(); it++) {
-                       
+
                         if (it->first == a_inst) {
-                          
+
                           flag_ainst = 1;
                         }
                       }
                       if (flag_ainst == 0) {
-                
+
                         auto a_alloc = builder.CreateAlloca(Int32Ty);
                         auto store_index = builder.CreateStore(zero, a_alloc);
 
@@ -310,159 +255,149 @@ struct VASAN : public ModulePass {
                                 a_inst, a_alloc));
                       }
                     }
-           ///////////////////addeddddddddddddddddddddd
-                      for (User *ur : gepinst->getOperand(0)->users())
-                        
-                        queue_user.push(ur);
-                      int flag_while_brk = 0;
-               
-                      while ((!queue_user.empty())) {
-												
-                        User *urv = queue_user.front();
-                        queue_user.pop();
+                    for (User *ur : gepinst->getOperand(0)->users())
 
-                        if (BranchInst *b = dyn_cast<BranchInst>(urv)) {
-                          flag_while_brk = 1;
-	                        //errs() << "Here ccccccccc  \n";
-                          if (b->getSuccessor(0) != nullptr) {
-                            BasicBlock *Bck1 =   b->getSuccessor(0) ;
-                            if (b->getSuccessor(1) != nullptr) {
-                              BasicBlock *Bck2 = b->getSuccessor(1);
-                               
-                              
-                              int loop1 = 0;
-                              int loop2 = 0;
-															const BasicBlock *Bck1_suc = Bck1->getSingleSuccessor();
-															const BasicBlock *Bck2_suc = Bck2->getSingleSuccessor();
-															if(Bck1_suc != nullptr && Bck2_suc != nullptr && Bck1_suc == Bck2_suc) {
-                               
+                      queue_user.push(ur);
+                    int flag_while_brk = 0;
 
-                                BasicBlock *B_Phi = *succ_begin(Bck1);
-                                if (!(B_Phi->empty())) {
-                                  if (PHINode *phi =
-                                          dyn_cast<PHINode>(B_Phi->begin())) {
-                                    bool bool1 = check_incoming1(
-                                        phi, &index_reg, ty, one, eight);
-                                    bool bool2 =
-                                        check_incoming2(phi, &add_five, ty,
-                                                        forty_eight, bit_inst2);
-                                    // This checking is done because if a
-                                    // function
-                                    // is just forwarding the va_list, then
-                                    // there
-                                    // will be no incoming phi node, resulting
-                                    // in a
-                                    // crash
-                                    if (bool1 && bool2) {
-				
+                    while ((!queue_user.empty())) {
 
-																		 bit_width =
+                      User *urv = queue_user.front();
+                      queue_user.pop();
+
+                      if (BranchInst *b = dyn_cast<BranchInst>(urv)) {
+                        flag_while_brk = 1;
+
+                        if (b->getSuccessor(0) != nullptr) {
+                          BasicBlock *Bck1 = b->getSuccessor(0);
+                          if (b->getSuccessor(1) != nullptr) {
+                            BasicBlock *Bck2 = b->getSuccessor(1);
+
+                            const BasicBlock *Bck1_suc =
+                                Bck1->getSingleSuccessor();
+                            const BasicBlock *Bck2_suc =
+                                Bck2->getSingleSuccessor();
+                            if (Bck1_suc != nullptr && Bck2_suc != nullptr &&
+                                Bck1_suc == Bck2_suc) {
+
+                              BasicBlock *B_Phi = *succ_begin(Bck1);
+                              if (!(B_Phi->empty())) {
+                                if (PHINode *phi =
+                                        dyn_cast<PHINode>(B_Phi->begin())) {
+                                  bool bool1 = check_incoming1(phi, &index_reg,
+                                                               ty, one, eight);
+                                  bool bool2 =
+                                      check_incoming2(phi, &add_five, ty,
+                                                      forty_eight, bit_inst2);
+                                  if (bool1 || bool2) {
+
+                                    bit_width =
                                         hashType(phi->getType()
                                                      ->getPointerElementType());
-                                    
-																	char p_array[100];
-																				std::sprintf(p_array, F->getName().str().c_str());
-																								                int maxLimit = 100;
-																						int arrayLimit = std::strlen(p_array);
-                                   std::strcat(p_array, "::");
-                                   std::strcat(p_array, file_name.c_str());
-                                  std::string file_name;
-																//	errs()<< p_array << "\n";
-																			int count = 0;					   
-																			ArrayType* NArrayTy_0 = ArrayType::get(IntegerType::get(*Context, 8), maxLimit);
-																			GlobalVariable* pngvar_array_str = new GlobalVariable(*N_M,
-																					NArrayTy_0,
-																					false,
-																					GlobalValue::InternalLinkage,
-																					0, // has initializer, specified below
-																					"test_global");
-																			std::vector<Constant*> classpnum_elems;
-																			Constant *const_array_6;
-																			count = 0;
-																			for(int t=0; t<arrayLimit; t++) {
-																				count += 1;
-																				const_array_6 = ConstantInt::get(Type::getInt8Ty(*Context), p_array[t], true);
-																				classpnum_elems.push_back(const_array_6);
-																			}
-																			for(int t=count+1; t<=maxLimit; t++) {
-																				const_array_6 = ConstantInt::get(Type::getInt8Ty(*Context), 0, true);
-																				classpnum_elems.push_back(const_array_6);
-																			}
-																			Constant* classpnum_array_1 = ConstantArray::get(NArrayTy_0, classpnum_elems);
-																			pngvar_array_str->setInitializer(classpnum_array_1);
+                                    // errs() << "Callee side hash is " <<
+                                    // bit_width << "\n";
+
+                                    char p_array[100];
+                                    std::sprintf(p_array,
+                                                 F->getName().str().c_str());
+                                    int maxLimit = 100;
+                                    int arrayLimit = std::strlen(p_array);
+                                    std::strcat(p_array, "::");
+                                    std::strcat(p_array, file_name.c_str());
+                                    std::string file_name;
+
+                                    int count = 0;
+                                    ArrayType *NArrayTy_0 = ArrayType::get(
+                                        IntegerType::get(*Context, 8),
+                                        maxLimit);
+                                    GlobalVariable *pngvar_array_str =
+                                        new GlobalVariable(
+                                            *N_M, NArrayTy_0, false,
+                                            GlobalValue::InternalLinkage,
+                                            0, // has initializer, specified
+                                               // below
+                                            "test_global");
+                                    std::vector<Constant *> classpnum_elems;
+                                    Constant *const_array_6;
+                                    count = 0;
+                                    for (int t = 0; t < arrayLimit; t++) {
+                                      count += 1;
+                                      const_array_6 = ConstantInt::get(
+                                          Type::getInt8Ty(*Context), p_array[t],
+                                          true);
+                                      classpnum_elems.push_back(const_array_6);
+                                    }
+                                    for (int t = count + 1; t <= maxLimit;
+                                         t++) {
+                                      const_array_6 = ConstantInt::get(
+                                          Type::getInt8Ty(*Context), 0, true);
+                                      classpnum_elems.push_back(const_array_6);
+                                    }
+                                    Constant *classpnum_array_1 =
+                                        ConstantArray::get(NArrayTy_0,
+                                                           classpnum_elems);
+                                    pngvar_array_str->setInitializer(
+                                        classpnum_array_1);
+
+                                    if (phi->getNextNode() != nullptr) {
 
                                       IRBuilder<> builder(phi->getNextNode());
-                                     
+
                                       for (std::map<llvm::AllocaInst *,
-                                                  llvm::AllocaInst
-                                                      *>::const_iterator it =
-                                             list_map.begin();
-                                         it != list_map.end(); it++) {
-                                         
-                                      if (it->first == a_inst) {
-                                  
-                                        index_arg = it->second;
-                                        auto load_second =
-                                            builder.CreateLoad(it->second);
-                                        auto add_one =
-                                            builder.CreateAdd(load_second, one);
-                                        auto store_one = builder.CreateStore(
-                                            add_one, it->second);
+                                                    llvm::AllocaInst
+                                                        *>::const_iterator it =
+                                               list_map.begin();
+                                           it != list_map.end(); it++) {
+
+                                        if (it->first == a_inst) {
+
+                                          index_arg = it->second;
+                                          auto load_second =
+                                              builder.CreateLoad(it->second);
+                                          auto add_one = builder.CreateAdd(
+                                              load_second, one);
+                                          auto store_one = builder.CreateStore(
+                                              add_one, it->second);
+                                        }
                                       }
-                                    }
-                                      // IRBuilder<> builder(phi->getNextNode()->getNextNode());
+
                                       Value *Param[] = {
-                                          builder.CreatePointerCast(pngvar_array_str, Int8PtrTy),
+                                          builder.CreatePointerCast(
+                                              pngvar_array_str, Int8PtrTy),
                                           index_arg,
                                           ConstantInt::get(Int64Ty, bit_width)};
-			
 
                                       Constant *GCOVInit =
                                           N_M->getOrInsertFunction(
-                                              "check_index", VoidTy, Int8PtrTy, Int32PtrTy,
-                                              Int64Ty, nullptr);
+                                              "check_index", VoidTy, Int8PtrTy,
+                                              Int32PtrTy, Int64Ty, nullptr);
                                       builder.CreateCall(GCOVInit, Param);
                                       counter++;
                                       flag_va_intrinsic++;
+                                    }
 
-
-																		//}
-
-                                    } // check for the incoming phi ends
-                                    else {
-																			// errs() << "phi incoming null \n"; // FIXME
-																			/*FILE *fp;
-																			fp = fopen("/home/priyam/up_llvm/yet_mozilla/err_phinull.txt", "a+");
-																			fprintf(fp, "-------------------------------------------------\n");
-																			fprintf(fp, "Error: PHI incoming null \n");
-																			fclose(fp);*/
-
-																		}
-                                    //FIXME 
-                                    // How to handle the case where it forwards
-                                    // the
-                                    // list
+                                  } // check for the incoming phi ends
+                                  else {
                                   }
                                 }
                               }
                             }
                           }
-                        } else {
-                          for (User *ur : urv->users())
-                            queue_user.push(ur);
                         }
-                        if (flag_while_brk == 1)
-                          break;
+                      } else {
+                        for (User *ur : urv->users())
+                          queue_user.push(ur);
                       }
+                      if (flag_while_brk == 1)
+                        break;
                     }
                   }
                 }
               }
+            }
 
-            } // for call_inst
-            // }
-          }
-        //} // for va_start_count
+          } // for call_inst
+        }
       }
     }
     return false;
@@ -474,28 +409,15 @@ struct VASAN : public ModulePass {
 // =====  Hash Calculation Function ==============
 
 uint64_t VASAN::hashType(Type *T) {
+
   uint64_t Result = 0;
-
-  //std::queue<Type *> Queue;
-  //Queue.push(T);
-
-  //while (!(Queue.empty())) {
-    //Type *Ty = Queue.front();
-    //Queue.pop();
-
-    Result = hashing(Result, T->getTypeID());
-    
-    if (T->isIntegerTy()) {
-      Result = hashing(Result, T->getIntegerBitWidth());
-    }
-    if (T->isFloatingPointTy()) {
-      Result = hashing(Result, T->getFPMantissaWidth());
-    }
-
-    /*for (Type *SubTy : Ty->subtypes()) {
-      Queue.push(SubTy);
-    }*/
-  //}
+  Result = hashing(Result, T->getTypeID());
+  if (T->isIntegerTy()) {
+    Result = hashing(Result, T->getIntegerBitWidth());
+  }
+  if (T->isFloatingPointTy()) {
+    Result = hashing(Result, T->getFPMantissaWidth());
+  }
 
   return Result;
 }
@@ -504,7 +426,7 @@ uint64_t VASAN::hashType(Type *T) {
 uint64_t VASAN::hashing(uint64_t OldHash, uint64_t NewData) {
 
   // FIXME Need to come up with a better hash function
-  NewData = NewData * 2;
+  // NewData = NewData * 2;
   NewData = OldHash + NewData;
   return NewData;
 }
@@ -536,7 +458,6 @@ bool VASAN::check_incoming2(PHINode *phi, Value **add_five, Type *ty,
                             Value *forty_eight, Value *bit_inst2) {
 
   Value *index2 = 0;
-  Value *base;
   Value *diff1 = 0;
 
   if (BitCastInst *bp = dyn_cast<BitCastInst>((phi->getIncomingValue(1)))) {
@@ -567,4 +488,3 @@ char VASAN::ID = 0;
 INITIALIZE_PASS(VASAN, "VASAN", "VASAN", false, false);
 
 ModulePass *llvm::createVASANPass() { return new VASAN(); }
-

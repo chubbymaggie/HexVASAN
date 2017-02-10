@@ -51,9 +51,11 @@ struct VASANCaller : public ModulePass {
   bool doInitialization(Module &M) { return true; }
 
   bool doFinalization(Module &M) { return false; }
-  uint64_t hashType(Type *T);
+  uint64_t hashType(Type *T, Value *V);
+
   uint64_t hashing(uint64_t OldHash, uint64_t NewData);
   uint32_t file_rand = rand();
+
   std::string file_r = std::to_string(file_rand);
   virtual bool runOnModule(Module &M) {
 
@@ -66,9 +68,7 @@ struct VASANCaller : public ModulePass {
     Type *VoidTy = Type::getVoidTy(Ctx);
     Type *Int64Ty = Type::getInt64Ty(Ctx);
     Type *Int32Ty = Type::getInt32Ty(Ctx);
-    Type *Int8Ty = Type::getInt8Ty(Ctx);
-    Type *Int8PtrTy = PointerType::getUnqual(Type::getInt8Ty(Ctx));
-    Type *Int32PtrTy = PointerType::getUnqual(Type::getInt32Ty(Ctx));
+
     Type *Int64PtrTy = PointerType::getUnqual(Type::getInt64Ty(Ctx));
 
     for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
@@ -94,6 +94,7 @@ struct VASANCaller : public ModulePass {
             auto *getft = cast<PointerType>(getcallvalue->getType());
             FunctionType *FT =
                 cast<FunctionType>(getft->getPointerElementType());
+
             if ((FT->isVarArg())) {
 
               uint64_t random = rand();
@@ -109,15 +110,12 @@ struct VASANCaller : public ModulePass {
                   file_name = dl->getFilename();
                 }
               }
-             if (getenv("VASAN_C_LOG_PATH") != nullptr) {
+              if (getenv("VASAN_C_LOG_PATH") != nullptr) {
 
                 char *home = getenv("VASAN_C_LOG_PATH");
 
                 call_inst->getFunctionType()->print(rso);
-                std::string pathname = home + file_r + "callsite.csv"; // FIXME
-
-              //  std::string pathname =
-            //"/home/priyam/up_llvm/yet_mozilla/callsite/" + file_r + "vfunc.tsv"; 
+                std::string pathname = home + file_r + "callsite.csv";
                 std::ofstream f_callsite;
                 f_callsite.open(pathname,
                                 std::ios_base::app | std::ios_base::out);
@@ -135,33 +133,32 @@ struct VASANCaller : public ModulePass {
                            << "\n";
 
                 f_callsite.close();
-             }
-              //} // if condition DILocation....
-              //}   // if condition MDNODe->getMetadata
+              }
 
               //================================================
-
-              ArrayType *arr_type = ArrayType::get(
-                  Int64Ty,
-                  (call_inst->getNumArgOperands())); // FIXME:  changed
-                                                     // here the numparams
+              FunctionType *FTypee = call_inst->getFunctionType();
+              ArrayType *arr_type =
+                  ArrayType::get(Int64Ty, (call_inst->getNumArgOperands() -
+                                           FTypee->getNumParams()));
 
               std::vector<Constant *> arg_types;
               int i = 1;
               uint64_t result_hash = 0;
               for (Value *arg_value : call_inst->arg_operands()) {
-                result_hash = hashType(arg_value->getType());
-
-                 //errs()<< "result hash at caller is" << result_hash << "\n";
-                Constant *ty_val =
-                    ConstantInt::get(Type::getInt64Ty(Ctx), result_hash);
-                arg_types.push_back(ty_val);
-
+                if (i > (FTypee->getNumParams())) {
+                  result_hash = hashType(arg_value->getType(), arg_value);
+                  // errs() << "Caller: Resulting Hash is " << result_hash <<
+                  // "\n";
+                  Constant *ty_val =
+                      ConstantInt::get(Type::getInt64Ty(Ctx), result_hash);
+                  arg_types.push_back(ty_val);
+                }
                 i++;
               }
 
               Constant *arg_c = ConstantInt::get(
-                  Type::getInt64Ty(Ctx), ((call_inst->getNumArgOperands())));
+                  Type::getInt64Ty(Ctx), ((call_inst->getNumArgOperands()) -
+                                          (FTypee->getNumParams())));
               Constant *Init_array = ConstantArray::get(arr_type, arg_types);
               GlobalVariable *type_array = new GlobalVariable(
                   M, arr_type, true, GlobalValue::InternalLinkage, Init_array,
@@ -203,19 +200,42 @@ struct VASANCaller : public ModulePass {
 };
 // =====  Hash Calculation Function ==============
 
-uint64_t VASANCaller::hashType(Type *T) {
+uint64_t VASANCaller::hashType(Type *T, Value *V) {
+
   uint64_t Result = 0;
 
- // std::queue<Type *> Queue;
-  //Queue.push(T);
+  if (LoadInst *dl = dyn_cast<LoadInst>(V)) {
+    if (GetElementPtrInst *gepinst =
+            dyn_cast<GetElementPtrInst>((dl->getOperand(0)))) {
+      if (BitCastInst *binst = dyn_cast<BitCastInst>(gepinst->getOperand(0))) {
 
-  //while (!(Queue.empty())) {
-    //Type *Ty = Queue.front();
-    //Queue.pop();
+        if (binst->getOperand(0)
+                ->getType()
+                ->getPointerElementType()
+                ->isStructTy()) {
+          Result = 13;
+          return Result;
+        }
+      }
+    }
+  }
 
+  if (T->getTypeID() == 15) {
+
+    if (T->getPointerElementType()) {
+      if (T->getPointerElementType()->getTypeID() == 13) {
+
+        Result = 13;
+        return Result;
+      }
+
+    } else {
+      Result = 15;
+      return Result;
+    }
+
+  } else {
     Result = hashing(Result, T->getTypeID());
-
-    //errs() << "Caller:Type id is " << Ty->getTypeID() <<"\n";
 
     if (T->isIntegerTy()) {
       Result = hashing(Result, T->getIntegerBitWidth());
@@ -223,10 +243,7 @@ uint64_t VASANCaller::hashType(Type *T) {
     if (T->isFloatingPointTy()) {
       Result = hashing(Result, T->getFPMantissaWidth());
     }
-
-    /*for (Type *SubTy : Ty->subtypes())
-      Queue.push(SubTy);*/
-  //}
+  }
 
   return Result;
 }
@@ -234,7 +251,6 @@ uint64_t VASANCaller::hashType(Type *T) {
 // =====  Hash Calculation Function ==============
 uint64_t VASANCaller::hashing(uint64_t OldHash, uint64_t NewData) {
 
-  NewData = NewData * 2;
   NewData = OldHash + NewData;
   return NewData;
 }

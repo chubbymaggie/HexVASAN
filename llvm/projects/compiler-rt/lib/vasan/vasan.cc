@@ -41,12 +41,13 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
 
   std::ofstream func_va;
   std::string pathname;
+  int flag = 0;
   if (getenv("VASAN_ERR_LOG_PATH") != nullptr) {
     char *home = getenv("VASAN_ERR_LOG_PATH");
     char path[MAXPATH];
     strcpy(path, home);
-    //printf("Path is %s\n", home);
     pathname = strcat(path, "error.txt");
+    flag = 1;
   }
   uint32_t index_8 = *index - 1;
   uint64_t temp_type = 0;
@@ -56,27 +57,28 @@ extern "C" SANITIZER_INTERFACE_ATTRIBUTE
     if (type == (mystack.top()->arg_array[index_8])) {
 
     } else {
-     
-      func_va.open(pathname, std::ios_base::app | std::ios_base::out);
-      temp_type = mystack.top()->arg_array[index_8];
-      func_va << "--------------------------\n";
-      func_va << "Error: Type Mismatch \n";
-      func_va << "FuncName::FileName : " << name << "\n";
-      func_va << "Index is " << index_8 << "\n";
-      func_va << "Callee Type : " << type << "\n";
-      func_va << "Caller Type : " << temp_type << "\n";
+      if (flag == 1) {
 
-      func_va.close();
+        func_va.open(pathname, std::ios_base::app | std::ios_base::out);
+        temp_type = mystack.top()->arg_array[index_8];
+        func_va << "--------------------------\n";
+        func_va << "Error: Type Mismatch \n";
+        func_va << "FuncName::FileName : " << name << "\n";
+        func_va << "Index is " << index_8 << "\n";
+        func_va << "Callee Type : " << type << "\n";
+        func_va << "Caller Type : " << temp_type << "\n";
 
-     
+        func_va.close();
+      }
     }
   } else {
-    func_va.open(pathname, std::ios_base::app | std::ios_base::out);
-		func_va << "--------------------------\n";
-    func_va << "Error: Index greater than Argument Count \n";
-		func_va << "FuncName::FileName : " << name << "\n";
-    func_va.close();
-    
+    if (flag == 1) {
+      func_va.open(pathname, std::ios_base::app | std::ios_base::out);
+      func_va << "--------------------------\n";
+      func_va << "Error: Index greater than Argument Count \n";
+      func_va << "FuncName::FileName : " << name << "\n";
+      func_va.close();
+    }
   }
 }
 
