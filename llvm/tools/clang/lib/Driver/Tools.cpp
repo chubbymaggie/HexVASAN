@@ -3127,8 +3127,9 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   if (SanArgs.needsStatsRt())
     StaticRuntimes.push_back("stats_client");
 
-  if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt()) 
-      SharedRuntimes.push_back("vasan");
+  // This has to be all the way up top so it also gets linked into DSOs.
+  if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
+	  StaticRuntimes.push_back("vasan");
   
   // Collect static runtimes.
   if (Args.hasArg(options::OPT_shared) || TC.getTriple().isAndroid()) {
@@ -3158,19 +3159,20 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     if (SanArgs.linkCXXRuntimes())
       StaticRuntimes.push_back("tsan_cxx");
   }
-  if (SanArgs.needsUbsanRt()) {
+/*  if (SanArgs.needsUbsanRt()) {
     StaticRuntimes.push_back("ubsan_standalone");
     if (SanArgs.linkCXXRuntimes())
       StaticRuntimes.push_back("ubsan_standalone_cxx");
   }
+*/
   if (SanArgs.needsSafeStackRt())
     StaticRuntimes.push_back("safestack");
   if (SanArgs.needsCfiRt())
     StaticRuntimes.push_back("cfi");
   if (SanArgs.needsCfiDiagRt()) {
     StaticRuntimes.push_back("cfi_diag");
-    if (SanArgs.linkCXXRuntimes())
-      StaticRuntimes.push_back("ubsan_standalone_cxx");
+//    if (SanArgs.linkCXXRuntimes())
+	//    StaticRuntimes.push_back("ubsan_standalone_cxx");
   }
   if (SanArgs.needsStatsRt()) {
     NonWholeStaticRuntimes.push_back("stats");

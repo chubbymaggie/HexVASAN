@@ -1,17 +1,7 @@
-#include <iostream> 
-#include <cxxabi.h>
-#include <string>
-#include <string.h>
-#include <stdio.h>
-#include <csignal>
-#include <signal.h>
-#include <ucontext.h>
-#include <list>
-#include <stack>
-
+#include <cstdint>
 struct callerside_info {
-	uint32_t id;
-	uint32_t arg_count;
+	uint64_t id;
+	uint64_t arg_count;
 	uint64_t*  arg_array;
 	
 };
