@@ -3127,8 +3127,9 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   if (SanArgs.needsStatsRt())
     StaticRuntimes.push_back("stats_client");
 
-
-
+  if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt()) 
+      SharedRuntimes.push_back("vasan");
+  
   // Collect static runtimes.
   if (Args.hasArg(options::OPT_shared) || TC.getTriple().isAndroid()) {
     // Don't link static runtimes into DSOs or if compiling for Android.
@@ -3176,13 +3177,6 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     RequiredSymbols.push_back("__sanitizer_stats_register");
   }
 	
-	if (SanArgs.needsVASANRt()) {
-    StaticRuntimes.push_back("vasan");
-  }
-	 if (SanArgs.needsVASANCallerRt()) {
-    StaticRuntimes.push_back("vasancaller");
-  }
-
   if (SanArgs.needsEsanRt())
     StaticRuntimes.push_back("esan");
 }
