@@ -297,8 +297,11 @@ struct VASAN : public ModulePass {
                                     // errs() << "Callee side hash is " <<
                                     // bit_width << "\n";
 
-                                    char p_array[100];
-                                    std::sprintf(p_array,
+				    // This fixes bus error in FreeBSD
+                                    char *p_array = 
+					(char *)malloc(F->getName().size() + file_name.length() + 3);
+				    dbgs() << F->getName().str();
+                                    std::strcpy(p_array,
                                                  F->getName().str().c_str());
                                     int maxLimit = 100;
                                     int arrayLimit = std::strlen(p_array);
@@ -327,6 +330,9 @@ struct VASAN : public ModulePass {
                                           true);
                                       classpnum_elems.push_back(const_array_6);
                                     }
+
+				    free(p_array);
+
                                     for (int t = count + 1; t <= maxLimit;
                                          t++) {
                                       const_array_6 = ConstantInt::get(
