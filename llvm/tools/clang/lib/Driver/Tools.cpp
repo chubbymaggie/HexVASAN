@@ -3127,8 +3127,9 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   if (SanArgs.needsStatsRt())
     StaticRuntimes.push_back("stats_client");
 
-  // This has to be all the way up top so it also gets linked into DSOs.
-  if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
+  if (SanArgs.needsVASANBacktraceRt())
+	  StaticRuntimes.push_back("vasan_backtrace");
+  else if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
 	  StaticRuntimes.push_back("vasan");
   
   // Collect static runtimes.
@@ -3192,6 +3193,7 @@ static bool addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   collectSanitizerRuntimes(TC, Args, SharedRuntimes, StaticRuntimes,
                            NonWholeStaticRuntimes, HelperStaticRuntimes,
                            RequiredSymbols);
+    
   for (auto RT : SharedRuntimes)
     addSanitizerRuntime(TC, Args, CmdArgs, RT, true, false);
   for (auto RT : HelperStaticRuntimes)

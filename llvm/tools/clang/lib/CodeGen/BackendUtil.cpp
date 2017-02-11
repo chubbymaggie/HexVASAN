@@ -429,6 +429,13 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                            addDataFlowSanitizerPass);
   }
 
+  	 if (LangOpts.Sanitize.has(SanitizerKind::VASANBacktrace)) {
+   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+                          addVASANPass);
+   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                          addVASANPass);
+	 }
+
 	 if (LangOpts.Sanitize.has(SanitizerKind::VASAN)) {
    PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
                           addVASANPass);

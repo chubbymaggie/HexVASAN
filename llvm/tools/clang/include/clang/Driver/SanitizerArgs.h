@@ -48,6 +48,7 @@ class SanitizerArgs {
   bool needsTsanRt() const { return Sanitizers.has(SanitizerKind::Thread); }
   bool needsMsanRt() const { return Sanitizers.has(SanitizerKind::Memory); }
 	bool needsVASANRt() const { return Sanitizers.has(SanitizerKind::VASAN); }
+	bool needsVASANBacktraceRt() const { return Sanitizers.has(SanitizerKind::VASANBacktrace); }
 	bool needsVASANCallerRt() const { return Sanitizers.has(SanitizerKind::VASANCaller); }
 	bool needsVACheckerRt() const { return Sanitizers.has(SanitizerKind::VAChecker); }
   bool needsLsanRt() const {
