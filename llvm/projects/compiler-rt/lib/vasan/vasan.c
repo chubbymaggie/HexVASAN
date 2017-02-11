@@ -70,6 +70,7 @@ static void __vasan_unlock()
 
 static void __vasan_backtrace()
 {
+	#if 0
     void *trace[16];
 	char **messages = (char **)NULL;
 	int i, trace_size = 0;
@@ -80,6 +81,7 @@ static void __vasan_backtrace()
 	for (i=0; i<trace_size; ++i)
 		(fprintf)(fp, "[%d] %s\n", i, messages[i]);
 	free(messages);
+	#endif
 }
 
 // We have to refuse to initialize until TLS is active
@@ -161,7 +163,7 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 void
 __vasan_vastart(va_list* list)
 {
-	if (!vasan_initialized && !__vasan_init() && __vasan_stack_top(vasan_stack))
+	if ((!vasan_initialized && !__vasan_init()) || !__vasan_stack_top(vasan_stack))
 		return;
 
 	struct vasan_type_info_full* info;
