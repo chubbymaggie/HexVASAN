@@ -1,3 +1,4 @@
+#include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +66,20 @@ static void __vasan_unlock()
 {
 	asm volatile("" ::: "memory");
 	spinlock = 0;
+}
+
+static void __vasan_backtrace()
+{
+    void *trace[16];
+	char **messages = (char **)NULL;
+	int i, trace_size = 0;
+
+	trace_size = backtrace(trace, 16);
+	messages = backtrace_symbols(trace, trace_size);
+	(fprintf)(fp, "Backtrace:\n");
+	for (i=0; i<trace_size; ++i)
+		(fprintf)(fp, "[%d] %s\n", i, messages[i]);
+	free(messages);
 }
 
 // We have to refuse to initialize until TLS is active
@@ -261,7 +276,7 @@ __vasan_check_index(const char* name, unsigned int* index_ptr, unsigned long typ
 // New version of the check_index function. You no longer have to figure out
 // the index for this one. You just need a list pointer...
 void
-__vasan_check_index_new(const char* name, va_list* list, unsigned long type)
+__vasan_check_index_new(va_list* list, unsigned long type)
 {
     if (!vasan_initialized && !__vasan_init())
         return;
@@ -277,16 +292,17 @@ __vasan_check_index_new(const char* name, va_list* list, unsigned long type)
 		if (type == info->types->arg_array[index])
 		{
 			// type match
+			info->args_ptr++;
 			return;
 		}
 		else
 		{
 			(fprintf)(fp, "--------------------------\n");
 			(fprintf)(fp, "Error: Type Mismatch \n");
-			(fprintf)(fp, "FuncName::FileName : %s\n", name);
 			(fprintf)(fp, "Index is %d \n", index);
 			(fprintf)(fp, "Callee Type : %lu\n", type);
 			(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+			__vasan_backtrace();
 
 			if (!logging_only)
 				exit(-1);
@@ -296,8 +312,8 @@ __vasan_check_index_new(const char* name, va_list* list, unsigned long type)
 	{
 		(fprintf)(fp, "--------------------------\n");
 		(fprintf)(fp, "Error: Index greater than Argument Count \n");
-		(fprintf)(fp, "FuncName::FileName : %s\n", name);
         (fprintf)(fp, "Index is %d \n", index);
+		__vasan_backtrace();
 
 		if (!logging_only)
 			exit(-1);

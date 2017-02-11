@@ -46,12 +46,36 @@ std::map<llvm::Value *, long int> variadic_map;
 using namespace llvm;
 using std::string;
 
+namespace
+{
+	uint64_t hashing(uint64_t OldHash, uint64_t NewData)
+	{
+		// FIXME Need to come up with a better hash function
+		// NewData = NewData * 2;
+		NewData = OldHash + NewData;
+		return NewData;
+	}
+
+	uint64_t hashType(Type *T)
+	{
+		uint64_t Result = 0;
+		Result = hashing(Result, T->getTypeID());
+		if (T->isIntegerTy())
+			Result = hashing(Result, T->getIntegerBitWidth());
+
+		if (T->isFloatingPointTy())
+			Result = hashing(Result, T->getFPMantissaWidth());
+
+		return Result;
+	}
+}
+
 namespace llvm
 {
 	struct VASANVisitor : public InstVisitor<VASANVisitor>
 	{
 	public:
-		VASANVisitor(Module& M) : N_M(M) {}
+		VASANVisitor(Module& M) : N_M(M) { }
 
 		void instrumentVAArgs();
 		
@@ -153,7 +177,31 @@ namespace llvm
 				Field->getZExtValue() != 0)
 				return;
 
-			// Found it!
+			// Now trace through the IR to find the phi node that
+			// collapses the in_reg and in_mem values
+			auto BB = dyn_cast<BasicBlock>(I.getParent());
+
+			if (!BB || !*succ_begin(BB) || !*succ_begin(*succ_begin(BB)))
+				return;
+
+			auto CollapseNode = *succ_begin(*succ_begin(BB));
+			unsigned long type_hash = 0;
+
+			if (PHINode *phi = dyn_cast<PHINode>(CollapseNode->begin()))
+				type_hash =	hashType(phi->getType()->getPointerElementType());
+			
+			Type *VoidTy = Type::getVoidTy(N_M.getContext());
+			Type *Int64Ty = Type::getInt64Ty(N_M.getContext());
+			Type* valistPtr = PointerType::getUnqual(Type::getInt8Ty(N_M.getContext()));
+			IRBuilder<> B(&I);
+			
+			Value* listPtr = I.getOperand(0);
+			if (listPtr->getType() != valistPtr)
+				listPtr = B.CreateBitCast(listPtr, valistPtr);
+
+			Constant* Func = N_M.getOrInsertFunction("__vasan_check_index_new",
+													 VoidTy, valistPtr, Int64Ty, nullptr);
+			B.CreateCall(Func, {listPtr, ConstantInt::get(Int64Ty, type_hash)});
 		}
 		
 		void visitVAArgInstr(VAArgInst& I)
@@ -185,9 +233,7 @@ struct VASAN : public ModulePass {
                        Value *eight);
   bool check_incoming2(PHINode *phi, Value **add_five, Type *ty,
                        Value *forty_eight, Value *bit_inst2);
-  uint64_t hashType(Type *T);
-  uint64_t hashing(uint64_t OldHash, uint64_t NewData);
-
+	
   uint32_t file_rand = rand();
   std::string file_r = std::to_string(file_rand);
 	
@@ -540,31 +586,6 @@ for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
 
 	virtual bool runOnFunction(Function &F) { return false; }
 };
-
-// =====  Hash Calculation Function ==============
-
-uint64_t VASAN::hashType(Type *T) {
-
-  uint64_t Result = 0;
-  Result = hashing(Result, T->getTypeID());
-  if (T->isIntegerTy()) {
-    Result = hashing(Result, T->getIntegerBitWidth());
-  }
-  if (T->isFloatingPointTy()) {
-    Result = hashing(Result, T->getFPMantissaWidth());
-  }
-
-  return Result;
-}
-
-// =====  Hash Calculation Function ==============
-uint64_t VASAN::hashing(uint64_t OldHash, uint64_t NewData) {
-
-  // FIXME Need to come up with a better hash function
-  // NewData = NewData * 2;
-  NewData = OldHash + NewData;
-  return NewData;
-}
 
 // Two checker functions of the pHI node
 
