@@ -126,6 +126,36 @@ namespace llvm
 			}
 		}
 
+		void visitGetElementPtrInst(GetElementPtrInst& I)
+		{
+			// We need to find this instruction: %gp_offset_p = getelementptr
+			// inbounds %struct.__va_list_tag, %struct.__va_list_tag*
+			// %arraydecay2, i32 0, i32 0
+			auto BaseType = dyn_cast<PointerType>(I.getOperand(0)->getType());
+
+			if (!BaseType)
+				return;
+
+			auto PointeeType = dyn_cast<StructType>(BaseType->getTypeAtIndex((unsigned)0));
+
+			if (!PointeeType ||
+				!PointeeType->hasName() ||
+				PointeeType->getName() != "struct.__va_list_tag")
+				return;
+				
+			// Ok. this is a definite va_arg op. now we just need to verify that
+			// operands 1 and 2 are null
+			auto Index = dyn_cast<ConstantInt>(I.getOperand(1));
+			auto Field = dyn_cast<ConstantInt>(I.getOperand(2));
+
+			if (!Index || !Field ||
+				Index->getZExtValue() != 0 ||
+				Field->getZExtValue() != 0)
+				return;
+
+			// Found it!
+		}
+		
 		void visitVAArgInstr(VAArgInst& I)
 		{
 			// FreeBSD clang emits these afaik
