@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include "stack.h"
 
-unsigned char stack_empty(struct stack_t* stack)
+unsigned char __vasan_stack_empty(struct stack_t* stack)
 {
 	return (stack && stack->top) ? 1 : 0;
 }
 
-void stack_push(struct stack_t* stack, void* data)
+void __vasan_stack_push(struct stack_t* stack, void* data)
 {
 	if (stack)
 	{
@@ -17,7 +17,7 @@ void stack_push(struct stack_t* stack, void* data)
 	}
 }
 
-void* stack_pop(struct stack_t* stack)
+void* __vasan_stack_pop(struct stack_t* stack)
 {
 	if (stack && stack->top)
 	{
@@ -31,26 +31,26 @@ void* stack_pop(struct stack_t* stack)
 	return (void*)0;
 }
 
-void* stack_top(struct stack_t* stack)
+void* __vasan_stack_top(struct stack_t* stack)
 {
 	if (stack && stack->top)
 		return stack->top->data;
 	return (void*)0;		
 }
 
-struct stack_t* stack_new()
+struct stack_t* __vasan_stack_new()
 {
 	struct stack_t* result = (struct stack_t*)malloc(sizeof(struct stack_t));
 	result->top = (void*)0;
 	return result;
 }
 
-void stack_free(struct stack_t* stack)
+void __vasan_stack_free(struct stack_t* stack)
 {
 	if (stack)
 	{
 		while(stack->top)
-			(void)stack_pop(stack);
+			(void)__vasan_stack_pop(stack);
 		free(stack);
 		stack = (struct stack_t*)0;
 	}

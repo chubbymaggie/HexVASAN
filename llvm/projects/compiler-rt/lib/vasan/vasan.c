@@ -15,11 +15,11 @@ static unsigned char logging_only = 0;
 static char path[MAXPATH];
 static FILE* fp = (FILE*)0;
 
-void __attribute__((constructor)) init()
+void __attribute__((constructor)) __vasan_init()
 {
-	vasan_stack = stack_new();
-	callsite_cnt = hashmap_new();
-	vfunc_cnt = hashmap_new();
+	vasan_stack = __vasan_stack_new();
+	callsite_cnt = __vasan_hashmap_new();
+	vfunc_cnt = __vasan_hashmap_new();
 
 	if (getenv("VASAN_ERR_LOG_PATH") != 0)
 	{
@@ -36,7 +36,7 @@ void __attribute__((constructor)) init()
 		fp = stderr;
 }
 
-void __attribute__((destructor)) fini()
+void __attribute__((destructor)) __vasan_fini()
 {
 	/*
 	stack_free(vasan_stack);
@@ -53,39 +53,39 @@ void __attribute__((destructor)) fini()
 
 // CallerSide: Function to push the pointer in the stack
 void
-info_push(struct callerside_info *x)
+__vasan_info_push(struct callerside_info *x)
 {
 	if (callsite_cnt)
 	{
 		int* cnt;
-		if (hashmap_get(callsite_cnt, x->id, (any_t*)&cnt) == MAP_MISSING)
+		if (__vasan_hashmap_get(callsite_cnt, x->id, (any_t*)&cnt) == MAP_MISSING)
 		{
 			cnt = (int*)malloc(sizeof(int));
 			*cnt = 1;
-			hashmap_put(callsite_cnt, x->id, (any_t)cnt);
+			__vasan_hashmap_put(callsite_cnt, x->id, (any_t)cnt);
 		}
 		else
 			*cnt = *cnt + 1;
 	}
 
 	if (vasan_stack)
-		stack_push(vasan_stack, x);
+		__vasan_stack_push(vasan_stack, x);
 }
 
 // CallerSide: Function to pop the pointer from the stack
 void
-info_pop(int i)
+__vasan_info_pop(int i)
 {
-	stack_pop(vasan_stack);
+	__vasan_stack_pop(vasan_stack);
 }
 
 // Callee Side: Function to match the type of the argument with the array
 // from top of the stack
 void
-check_index(const char* name, unsigned int* index_ptr, unsigned long type)
+__vasan_check_index(const char* name, unsigned int* index_ptr, unsigned long type)
 {
 	unsigned int index = *index_ptr - 1;
-	struct callerside_info* top_frame = (struct callerside_info*)stack_top(vasan_stack);
+	struct callerside_info* top_frame = (struct callerside_info*)__vasan_stack_top(vasan_stack);
 
 	if (!top_frame)
 		return;
@@ -124,16 +124,16 @@ check_index(const char* name, unsigned int* index_ptr, unsigned long type)
 
 // Callee Side: Function to reset the counter
 void
-assign_id(int i)
+__vasan_assign_id(int i)
 {
 	if (vfunc_cnt)
 	{
 		int* cnt;
-		if (hashmap_get(vfunc_cnt, i, (any_t*)&cnt) == MAP_MISSING)
+		if (__vasan_hashmap_get(vfunc_cnt, i, (any_t*)&cnt) == MAP_MISSING)
 		{
 			cnt = (int*)malloc(sizeof(int));
 			*cnt = 1;
-			hashmap_put(vfunc_cnt, i, (any_t)cnt);
+			__vasan_hashmap_put(vfunc_cnt, i, (any_t)cnt);
 		}
 		else
 			*cnt = *cnt + 1;

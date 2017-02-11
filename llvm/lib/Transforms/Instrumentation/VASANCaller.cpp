@@ -178,13 +178,13 @@ struct VASANCaller : public ModulePass {
               IRBuilder<> Builder(call_inst);
               Value *Param[] = {struct_node};
               Constant *GInit = N_M->getOrInsertFunction(
-                  "info_push", VoidTy, struct_node->getType(), nullptr);
+                  "__vasan_info_push", VoidTy, struct_node->getType(), nullptr);
               Builder.CreateCall(GInit, Param);
 
               int value = 0;
               IRBuilder<> builder(call_inst->getNextNode());
               Value *Param2 = {ConstantInt::get(Int32Ty, value)};
-              Constant *GFin = N_M->getOrInsertFunction("info_pop", VoidTy,
+              Constant *GFin = N_M->getOrInsertFunction("__vasan_info_pop", VoidTy,
                                                         Int32Ty, nullptr);
               builder.CreateCall(GFin, Param2);
             }

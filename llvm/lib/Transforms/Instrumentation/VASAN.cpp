@@ -171,7 +171,7 @@ struct VASAN : public ModulePass {
 
                 IRBuilder<> Builder(call_inst);
                 Value *Param[] = {ConstantInt::get(Int64Ty, unique_id)};
-                Constant *GInit = N_M->getOrInsertFunction("assign_id", VoidTy,
+                Constant *GInit = N_M->getOrInsertFunction("__vasan_assign_id", VoidTy,
                                                            Int64Ty, nullptr);
                 Builder.CreateCall(GInit, Param);
               }
@@ -375,7 +375,7 @@ struct VASAN : public ModulePass {
 
                                       Constant *GCOVInit =
                                           N_M->getOrInsertFunction(
-                                              "check_index", VoidTy, Int8PtrTy,
+                                              "__vasan_check_index", VoidTy, Int8PtrTy,
                                               Int32PtrTy, Int64Ty, nullptr);
                                       builder.CreateCall(GCOVInit, Param);
                                       counter++;
