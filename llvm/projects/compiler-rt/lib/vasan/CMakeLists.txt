@@ -8,7 +8,7 @@ add_compiler_rt_runtime(clang_rt.vasan
         STATIC
         ARCHS x86_64 
         SOURCES vasan.c stack.c hashmap.c
-        CFLAGS ${VASAN_CFLAGS} -fvisibility=default 
+        CFLAGS ${VASAN_CFLAGS} -fvisibility=default -DNO_BACKTRACE
         PARENT_TARGET vasan)
 
 add_sanitizer_rt_symbols(clang_rt.vasan)

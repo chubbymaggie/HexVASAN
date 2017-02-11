@@ -1,7 +1,10 @@
+#ifndef NO_BACKTRACE
 #include <execinfo.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
 #include "vasan.h"
 #include "stack.h"
 #include "hashmap.h"
@@ -9,11 +12,13 @@
 #define DEBUG
 #define MAXPATH 1000
 
+struct vasan_global_state
+{
+
 //
 // This is where we keep all of the type info that has not been associated with
 // a va_list yet. It has to be thread local!
 //
-static
 #ifdef VASAN_THREAD_SUPPORT
 __thread
 #endif
@@ -23,7 +28,6 @@ struct stack_t* vasan_stack;
 // This is where we keep all of the type info that HAS been associated with a
 // va_list. 
 //
-static
 #ifdef VASAN_THREAD_SUPPORT
 __thread
 #endif
@@ -33,13 +37,18 @@ map_t vasan_map;
 // A simple spinlock should suffice to protect accesses to these global maps.
 // We're not expecting a lot of contention here.
 //
-static volatile int spinlock = 0;
-static map_t callsite_cnt = (map_t*)0;
-static map_t vfunc_cnt = (map_t*)0;
+volatile int spinlock;
+map_t callsite_cnt;
+map_t vfunc_cnt;
+unsigned char logging_only;
+FILE* fp;
+};
+
+__attribute__((visibility("default"))) struct vasan_global_state _vasan_global =
+{ (struct stack_t*)0, (map_t)0, 0, (map_t)0, (map_t)0, 0, (FILE*)0 };
+
+static struct vasan_global_state* vasan_global = 0;
 static unsigned char vasan_initialized = 0;
-static unsigned char logging_only = 0;
-static char path[MAXPATH];
-static FILE* fp = (FILE*)0;
 
 // This is musl's debug struct.
 struct debug {
@@ -76,7 +85,7 @@ static unsigned char __vasan_is_tls_active()
 static void __vasan_lock()
 {
 #if VASAN_THREAD_SUPPORT	
-	while(!__sync_bool_compare_and_swap(&spinlock, 0, 1))
+	while(!__sync_bool_compare_and_swap(&vasan_global->spinlock, 0, 1))
 		asm volatile("rep; nop" ::: "memory");
 #endif
 }
@@ -85,22 +94,22 @@ static void __vasan_unlock()
 {
 #if VASAN_THREAD_SUPPORT	
 	asm volatile("" ::: "memory");
-	spinlock = 0;
+	vasan_global->spinlock = 0;
 #endif
 }
 
 static void __vasan_backtrace()
 {
-#if 0
+#ifndef NO_BACKTRACE
     void *trace[16];
 	char **messages = (char **)NULL;
 	int i, trace_size = 0;
 
 	trace_size = backtrace(trace, 16);
 	messages = backtrace_symbols(trace, trace_size);
-	(fprintf)(fp, "Backtrace:\n");
+	(fprintf)(vasan_global->fp, "Backtrace:\n");
 	for (i=0; i<trace_size; ++i)
-		(fprintf)(fp, "[%d] %s\n", i, messages[i]);
+		(fprintf)(vasan_global->fp, "[%d] %s\n", i, messages[i]);
 	free(messages);
 #endif
 }
@@ -108,30 +117,38 @@ static void __vasan_backtrace()
 // We have to refuse to initialize until TLS is active
 static unsigned char __vasan_init()
 {
+	char path[MAXPATH];
+	
     if (!__vasan_is_tls_active())
         return 0;
 
-	vasan_stack = __vasan_stack_new();
-	vasan_map   = __vasan_hashmap_new();
+	// make sure everyone uses the same global state
+	vasan_global = dlsym(RTLD_DEFAULT, "_vasan_global");
 	vasan_initialized = 1;
+	
+	if (vasan_global->vasan_stack)
+		return 1;
+
+	vasan_global->vasan_stack = __vasan_stack_new();
+	vasan_global->vasan_map = __vasan_hashmap_new();
 
 	if (getenv("VASAN_ERR_LOG_PATH") != 0)
 	{
 		char *home = getenv("VASAN_ERR_LOG_PATH");
 		strcpy(path, home);
 		strcat(path, "error.txt");
-		logging_only = 1;
+		vasan_global->logging_only = 1;
 
 		// Only track statistics if we're in logging mode
-		callsite_cnt = __vasan_hashmap_new();
-		vfunc_cnt = __vasan_hashmap_new();
+		vasan_global->callsite_cnt = __vasan_hashmap_new();
+		vasan_global->vfunc_cnt = __vasan_hashmap_new();
 
 		// open log file and remember the fp
-		fp = fopen(path, "a+");
+		vasan_global->fp = fopen(path, "a+");
 	}
 
-	if (!fp)
-		fp = stderr;
+	if (!vasan_global->fp)
+		vasan_global->fp = stderr;
 
     return 1;
 }
@@ -139,17 +156,17 @@ static unsigned char __vasan_init()
 void __attribute__((destructor)) __vasan_fini()
 {
 	/*
-	stack_free(vasan_stack);
-	if (callsite_cnt)
-	hashmap_free(callsite_cnt);
-	if (vfunc_cnt)
-	hashmap_free(vfunc_cnt);
+	stack_free(vasan_global->vasan_stack);
+	if (vasan_global->callsite_cnt)
+	hashmap_free(vasan_global->callsite_cnt);
+	if (vasan_global->vfunc_cnt)
+	hashmap_free(vasan_global->vfunc_cnt);
 	*/
 
-	if (fp && fp != stderr)
+	if (vasan_global->fp && vasan_global->fp != stderr)
 	{
-		fclose(fp);
-		fp = (FILE*)0;
+		fclose(vasan_global->fp);
+		vasan_global->fp = (FILE*)0;
 	}
 }
 
@@ -160,22 +177,22 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
     if (!vasan_initialized && !__vasan_init())
         return;
 
-	if (callsite_cnt)
+	if (vasan_global->callsite_cnt)
 	{
 		__vasan_lock();
 		int* cnt;
-		if (__vasan_hashmap_get(callsite_cnt, x->id, (any_t*)&cnt) == MAP_MISSING)
+		if (__vasan_hashmap_get(vasan_global->callsite_cnt, x->id, (any_t*)&cnt) == MAP_MISSING)
 		{
 			cnt = (int*)malloc(sizeof(int));
 			*cnt = 1;
-			__vasan_hashmap_put(callsite_cnt, x->id, (any_t)cnt);
+			__vasan_hashmap_put(vasan_global->callsite_cnt, x->id, (any_t)cnt);
 		}
 		else
 			*cnt = *cnt + 1;
 		__vasan_unlock();
 	}
 
-    __vasan_stack_push(vasan_stack, x);
+    __vasan_stack_push(vasan_global->vasan_stack, x);
 }
 
 // We've seen a va_start call.
@@ -184,22 +201,22 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 void
 __vasan_vastart(va_list* list)
 {
-	if ((!vasan_initialized && !__vasan_init()) || !__vasan_stack_top(vasan_stack))
+	if ((!vasan_initialized && !__vasan_init()) || !__vasan_stack_top(vasan_global->vasan_stack))
 		return;
 
 	struct vasan_type_info_full* info;
-	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
+	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
 	{
 		info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
-		__vasan_hashmap_put(vasan_map, (unsigned long)list, (any_t*)info);
+		__vasan_hashmap_put(vasan_global->vasan_map, (unsigned long)list, (any_t*)info);
 	}
 	
 	info->list_ptr = list;
 	info->args_ptr = 0;
-	info->types = __vasan_stack_top(vasan_stack);
+	info->types = __vasan_stack_top(vasan_global->vasan_stack);
 
 	// this unassociated type info is now consumed
-	__vasan_stack_pop(vasan_stack);
+	__vasan_stack_pop(vasan_global->vasan_stack);
 }
 
 // This list is no longer going to be used.
@@ -211,9 +228,9 @@ __vasan_vaend(va_list* list)
 		return;
 
 	struct vasan_type_info_full* info;
-	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
+	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
 	{
-		__vasan_hashmap_remove(vasan_map, (unsigned long)list);
+		__vasan_hashmap_remove(vasan_global->vasan_map, (unsigned long)list);
 		free(info);
 	}
 }
@@ -226,13 +243,13 @@ __vasan_vacopy(va_list* src, va_list* dst)
 		return;
 
 	struct vasan_type_info_full* src_info, *dst_info;
-	if (__vasan_hashmap_get(vasan_map, (unsigned long)src, (any_t*)&src_info) == MAP_MISSING)
+	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)src, (any_t*)&src_info) == MAP_MISSING)
 		return;
 	
-	if (__vasan_hashmap_get(vasan_map, (unsigned long)dst, (any_t*)&dst_info) == MAP_MISSING)
+	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)dst, (any_t*)&dst_info) == MAP_MISSING)
 	{
 		dst_info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
-		__vasan_hashmap_put(vasan_map, (unsigned long)dst, (any_t*)dst_info);
+		__vasan_hashmap_put(vasan_global->vasan_map, (unsigned long)dst, (any_t*)dst_info);
 	}
 
 	dst_info->list_ptr = dst;
@@ -247,54 +264,9 @@ __vasan_info_pop(int i)
     if (!vasan_initialized && !__vasan_init())
         return;
 
-    __vasan_stack_pop(vasan_stack);
+    __vasan_stack_pop(vasan_global->vasan_stack);
 }
 
-// Callee Side: Function to match the type of the argument with the array
-// from top of the stack
-void
-__vasan_check_index(const char* name, unsigned int* index_ptr, unsigned long type)
-{
-    if (!vasan_initialized && !__vasan_init())
-        return;
-
-	unsigned int index = *index_ptr - 1;
-	struct vasan_type_info_tmp* top_frame = (struct vasan_type_info_tmp*)__vasan_stack_top(vasan_stack);
-
-	if (!top_frame)
-		return;
-
-	if (index < top_frame->arg_count)
-	{
-		if (type == top_frame->arg_array[index])
-		{
-			// type match
-			return;
-		}
-		else
-		{
-			(fprintf)(fp, "--------------------------\n");
-			(fprintf)(fp, "Error: Type Mismatch \n");
-			(fprintf)(fp, "FuncName::FileName : %s\n", name);
-			(fprintf)(fp, "Index is %d \n", index);
-			(fprintf)(fp, "Callee Type : %lu\n", type);
-			(fprintf)(fp, "Caller Type : %lu\n", top_frame->arg_array[index]);
-
-			if (!logging_only)
-				exit(-1);
-		}
-	}
-	else
-	{
-		(fprintf)(fp, "--------------------------\n");
-		(fprintf)(fp, "Error: Index greater than Argument Count \n");
-		(fprintf)(fp, "FuncName::FileName : %s\n", name);
-        (fprintf)(fp, "Index is %d \n", index);
-
-		if (!logging_only)
-			exit(-1);
-	}
-}
 
 // New version of the check_index function. You no longer have to figure out
 // the index for this one. You just need a list pointer...
@@ -305,7 +277,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
         return;
 
 	struct vasan_type_info_full* info;
-	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
+	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
 		return;
 
 	unsigned long index = info->args_ptr;
@@ -320,25 +292,27 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 		}
 		else
 		{
-			(fprintf)(fp, "--------------------------\n");
-			(fprintf)(fp, "Error: Type Mismatch \n");
-			(fprintf)(fp, "Index is %d \n", index);
-			(fprintf)(fp, "Callee Type : %lu\n", type);
-			(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+			(fprintf)(vasan_global->fp, "--------------------------\n");
+			(fprintf)(vasan_global->fp, "Error: Type Mismatch \n");
+			(fprintf)(vasan_global->fp, "Index is %d \n", index);
+			(fprintf)(vasan_global->fp, "Callee Type : %lu\n", type);
+			(fprintf)(vasan_global->fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+			fflush(vasan_global->fp);
 			__vasan_backtrace();
 
-			if (!logging_only)
+			if (!vasan_global->logging_only)
 				exit(-1);
 		}
 	}
 	else
 	{
-		(fprintf)(fp, "--------------------------\n");
-		(fprintf)(fp, "Error: Index greater than Argument Count \n");
-        (fprintf)(fp, "Index is %d \n", index);
+		(fprintf)(vasan_global->fp, "--------------------------\n");
+		(fprintf)(vasan_global->fp, "Error: Index greater than Argument Count \n");
+        (fprintf)(vasan_global->fp, "Index is %d \n", index);
+		fflush(vasan_global->fp);
 		__vasan_backtrace();
 
-		if (!logging_only)
+		if (!vasan_global->logging_only)
 			exit(-1);
 	}
 
@@ -352,15 +326,15 @@ __vasan_assign_id(int i)
     if (!vasan_initialized && !__vasan_init())
         return;
 
-    if (vfunc_cnt)
+    if (vasan_global->vfunc_cnt)
 	{
 		__vasan_lock();
 		int* cnt;
-		if (__vasan_hashmap_get(vfunc_cnt, i, (any_t*)&cnt) == MAP_MISSING)
+		if (__vasan_hashmap_get(vasan_global->vfunc_cnt, i, (any_t*)&cnt) == MAP_MISSING)
 		{
 			cnt = (int*)malloc(sizeof(int));
 			*cnt = 1;
-			__vasan_hashmap_put(vfunc_cnt, i, (any_t)cnt);
+			__vasan_hashmap_put(vasan_global->vfunc_cnt, i, (any_t)cnt);
 		}
 		else
 			*cnt = *cnt + 1;
