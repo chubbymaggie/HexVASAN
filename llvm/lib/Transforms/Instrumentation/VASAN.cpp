@@ -20,6 +20,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetSelect.h"
@@ -45,7 +46,99 @@ std::map<llvm::Value *, long int> variadic_map;
 using namespace llvm;
 using std::string;
 
+namespace llvm
+{
+	struct VASANVisitor : public InstVisitor<VASANVisitor>
+	{
+	public:
+		VASANVisitor(Module& M) : N_M(M) {}
+
+		void instrumentVAArgs();
+		
+		void visitCallInst(CallInst& I)
+		{
+			Function *ft = I.getCalledFunction();
+
+			if (ft == nullptr)
+				return;
+
+			auto ID = ft->getIntrinsicID();
+			if (ID != Intrinsic::vastart &&
+				ID != Intrinsic::vaend &&
+				ID != Intrinsic::vacopy)
+				return;
+
+			// Insert a call after the vararg func
+			IRBuilder<> B(I.getNextNode());
+			Type *VoidTy = Type::getVoidTy(N_M.getContext());
+			Type* valistPtr = PointerType::getUnqual(Type::getInt8Ty(N_M.getContext()));
+
+			if (ft->getIntrinsicID() == llvm::Intrinsic::vastart)
+			{
+				// The first argument of the call is a bitcast
+				// of the va_list struct to i8*
+				BitCastInst* listCast = dyn_cast<BitCastInst>(I.getArgOperand(0));
+
+				if (!listCast)
+					return;
+
+				Value* listPtr = listCast->getOperand(0);
+				if (listPtr->getType() != valistPtr)
+					listPtr = B.CreateBitCast(listPtr, valistPtr);
+				
+				Constant* Func = N_M.getOrInsertFunction("__vasan_vastart", VoidTy, valistPtr, nullptr);
+				B.CreateCall(Func, {listPtr});
+			}
+			else if (ft->getIntrinsicID() == llvm::Intrinsic::vacopy)
+			{				
+				// arg0 of the intrinsic is the dst
+				// arg1 of the intrinsic is the src
+				// the VASAN runtime does it the other way around
+				BitCastInst* dstCast = dyn_cast<BitCastInst>(I.getArgOperand(0));
+				BitCastInst* srcCast = dyn_cast<BitCastInst>(I.getArgOperand(1));			   
+
+				if (!srcCast || !dstCast)
+					return;
+
+				Value* dstPtr = dstCast->getOperand(0);
+				Value* srcPtr = srcCast->getOperand(0);
+				if (srcPtr->getType() != valistPtr)
+					srcPtr = B.CreateBitCast(srcPtr, valistPtr);
+				if (dstPtr->getType() != valistPtr)
+					dstPtr = B.CreateBitCast(dstPtr, valistPtr);
+
+				Constant* Func = N_M.getOrInsertFunction("__vasan_vacopy", VoidTy, valistPtr, valistPtr, nullptr);
+				B.CreateCall(Func, {srcPtr, dstPtr});
+			}
+			else if (ft->getIntrinsicID() == llvm::Intrinsic::vaend)
+			{
+				BitCastInst* listCast = dyn_cast<BitCastInst>(I.getArgOperand(0));
+
+				if (!listCast)
+					return;
+
+				Value* listPtr = listCast->getOperand(0);
+				if (listPtr->getType() != valistPtr)
+					listPtr = B.CreateBitCast(listPtr, valistPtr);
+				
+				Constant* Func = N_M.getOrInsertFunction("__vasan_vaend", VoidTy, valistPtr, nullptr);
+				B.CreateCall(Func, {listPtr});
+			}
+		}
+
+		void visitVAArgInstr(VAArgInst& I)
+		{
+			// FreeBSD clang emits these afaik
+			errs() << "Saw VA Arg Inst: ";
+			I.dump();
+		}
+
+		Module& N_M;
+	};
+}
+
 namespace {
+
 
 struct VASAN : public ModulePass {
 
@@ -67,123 +160,128 @@ struct VASAN : public ModulePass {
 
   uint32_t file_rand = rand();
   std::string file_r = std::to_string(file_rand);
-  virtual bool runOnModule(Module &M) {
+	
+	virtual bool runOnModule(Module &M) {
 
-    int counter = 0;
-    Module *N_M;
-    N_M = &M;
-    LLVMContext &Ctx = M.getContext();
-    Context = &M.getContext();
+		int counter = 0;
+		Module *N_M;
+		N_M = &M;
+		LLVMContext &Ctx = M.getContext();
+		Context = &M.getContext();
 
-    Type *VoidTy = Type::getVoidTy(Ctx);
-    Type *Int64Ty = Type::getInt64Ty(Ctx);
-    Type *Int32Ty = Type::getInt32Ty(Ctx);
-    Type *Int8PtrTy = PointerType::getUnqual(Type::getInt8Ty(Ctx));
-    Type *Int32PtrTy = PointerType::getUnqual(Type::getInt32Ty(Ctx));
+		Type *VoidTy = Type::getVoidTy(Ctx);
+		Type *Int64Ty = Type::getInt64Ty(Ctx);
+		Type *Int32Ty = Type::getInt32Ty(Ctx);
+		Type *Int8PtrTy = PointerType::getUnqual(Type::getInt8Ty(Ctx));
+		Type *Int32PtrTy = PointerType::getUnqual(Type::getInt32Ty(Ctx));
 
-    auto dm = M.getDataLayout();
-    auto ty = dm.getIntPtrType(Ctx);
-    Value *index_arg = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
-    srand(time(nullptr));
-    std::string file_name;
+		auto dm = M.getDataLayout();
+		auto ty = dm.getIntPtrType(Ctx);
+		Value *index_arg = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
+		srand(time(nullptr));
+		std::string file_name;
 
-    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-      std::ofstream func_va;
-      Value *funcptr;
+		for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+			std::ofstream func_va;
+			Value *funcptr;
 
-      if (Function *Fnew = dyn_cast<Function>(F)) {
-        funcptr = dyn_cast<Value>(Fnew);
-      }
-      std::string addrtaken = "no";
-      std::string definition = "definition";
-      if (F->empty()) {
-        definition = "declaration";
-      } else
-        definition = "definition";
+			if (Function *Fnew = dyn_cast<Function>(F)) {
+				funcptr = dyn_cast<Value>(Fnew);
+			}
+			std::string addrtaken = "no";
+			std::string definition = "definition";
+			if (F->empty()) {
+				definition = "declaration";
+			} else
+				definition = "definition";
 
-      if (F->isVarArg()) {
+			if (F->isVarArg()) {
 
-        /*================================================*/
-        uint32_t user_count = 0;
-        uint32_t user_call_count = 0;
+				/*================================================*/
+				uint32_t user_count = 0;
+				uint32_t user_call_count = 0;
 
-        for (User *func_users : F->users()) {
-          user_count++;
+				for (User *func_users : F->users()) {
+					user_count++;
 
-          ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
-          while (bc != nullptr && bc->isCast()) {
-            func_users = *bc->users().begin();
-            bc = dyn_cast<ConstantExpr>(func_users);
-          }
+					ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
+					while (bc != nullptr && bc->isCast()) {
+						func_users = *bc->users().begin();
+						bc = dyn_cast<ConstantExpr>(func_users);
+					}
 
-          if (CallInst *cist = dyn_cast<CallInst>(func_users)) {
-            user_call_count++;
-          }
-        }
-        if (user_count == user_call_count) {
-          addrtaken = "no";
-        } else {
-          addrtaken = "yes";
-        }
+					if (CallInst *cist = dyn_cast<CallInst>(func_users)) {
+						user_call_count++;
+					}
+				}
+				if (user_count == user_call_count) {
+					addrtaken = "no";
+				} else {
+					addrtaken = "yes";
+				}
 
-        /*================================================*/
+				/*================================================*/
 
-        long int unique_id = rand();
-        variadic_map.insert(
-            std::pair<llvm::Value *, long int>(funcptr, unique_id));
-        std::string str;
-        llvm::raw_string_ostream rso(str);
-        F->getFunctionType()->print(rso);
-        std::queue<User *> func_user;
-        uint32_t line_no;
+				long int unique_id = rand();
+				variadic_map.insert(
+					std::pair<llvm::Value *, long int>(funcptr, unique_id));
+				std::string str;
+				llvm::raw_string_ostream rso(str);
+				F->getFunctionType()->print(rso);
+				std::queue<User *> func_user;
+				uint32_t line_no;
 
-        if (MDNode *md = F->getMetadata("dbg")) {
-          if (DISubprogram *dl = dyn_cast<DISubprogram>(md)) {
-            line_no = dl->getLine();
-            file_name = dl->getFilename();
-          }
-        }
+				if (MDNode *md = F->getMetadata("dbg")) {
+					if (DISubprogram *dl = dyn_cast<DISubprogram>(md)) {
+						line_no = dl->getLine();
+						file_name = dl->getFilename();
+					}
+				}
 
-        if (getenv("VASAN_LOG_PATH") != nullptr) {
-          char *home = getenv("VASAN_LOG_PATH");
+				if (getenv("VASAN_LOG_PATH") != nullptr) {
+					char *home = getenv("VASAN_LOG_PATH");
 
-          std::string pathname = home + file_r + "vfunc.csv";
+					std::string pathname = home + file_r + "vfunc.csv";
 
-          func_va.open(pathname, std::ios_base::app | std::ios_base::out);
+					func_va.open(pathname, std::ios_base::app | std::ios_base::out);
 
-          func_va << unique_id << "\t" << F->getName().str() << "\t"
-                  << rso.str() << "\t" << F->getLinkage() << "\t" << file_name
-                  << "\t" << line_no;
+					func_va << unique_id << "\t" << F->getName().str() << "\t"
+							<< rso.str() << "\t" << F->getLinkage() << "\t" << file_name
+							<< "\t" << line_no;
 
-          func_va << "\t" << addrtaken << "\t" << definition << "\n";
-        }
+					func_va << "\t" << addrtaken << "\t" << definition << "\n";
+				}
 
-        for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
-          BasicBlock &b = *BB;
-          for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
+				for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
+					BasicBlock &b = *BB;
+					for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
 
-            if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
+						if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
 
-              Function *ft = call_inst->getCalledFunction();
+							Function *ft = call_inst->getCalledFunction();
 
-              if ((ft != nullptr) &&
-                  ((ft->getIntrinsicID() == llvm::Intrinsic::vastart))) {
+							if ((ft != nullptr) &&
+								((ft->getIntrinsicID() == llvm::Intrinsic::vastart))) {
 
-                IRBuilder<> Builder(call_inst);
-                Value *Param[] = {ConstantInt::get(Int64Ty, unique_id)};
-                Constant *GInit = N_M->getOrInsertFunction("__vasan_assign_id", VoidTy,
-                                                           Int64Ty, nullptr);
-                Builder.CreateCall(GInit, Param);
-              }
-            }
-          }
-        }
-      }
-      func_va.close();
-    }
-    //================csv information ends here
-    //=============================================================
-    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+								IRBuilder<> Builder(call_inst);
+								Value *Param[] = {ConstantInt::get(Int64Ty, unique_id)};
+								Constant *GInit = N_M->getOrInsertFunction("__vasan_assign_id", VoidTy,
+																		   Int64Ty, nullptr);
+								Builder.CreateCall(GInit, Param);
+							}
+						}
+					}
+				}
+			}
+			func_va.close();
+		}
+		//================csv information ends here
+		VASANVisitor V(M);
+		V.visit(M);
+		
+		//=============================================================
+/*
+for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
 
       FunctionType *FT = F->getFunctionType();
       Value *bit_inst2 = 0;
@@ -406,10 +504,11 @@ struct VASAN : public ModulePass {
         }
       }
     }
-    return false;
-  }
+*/
+		return false;
+	}
 
-  virtual bool runOnFunction(Function &F) { return false; }
+	virtual bool runOnFunction(Function &F) { return false; }
 };
 
 // =====  Hash Calculation Function ==============

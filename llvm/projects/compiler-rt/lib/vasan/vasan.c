@@ -9,9 +9,16 @@
 #define MAXPATH 1000
 
 //
-// This is where we keep all of the type info. It has to be thread local!
+// This is where we keep all of the type info that has not been associated with
+// a va_list yet. It has to be thread local!
 //
 static __thread struct stack_t* vasan_stack;
+
+//
+// This is where we keep all of the type info that HAS been associated with a
+// va_list. 
+//
+static __thread map_t vasan_map;
 
 //
 // A simple spinlock should suffice to protect accesses to these global maps.
@@ -67,6 +74,7 @@ static unsigned char __vasan_init()
         return 0;
 
 	vasan_stack = __vasan_stack_new();
+	vasan_map   = __vasan_hashmap_new();
 	vasan_initialized = 1;
 
 	if (getenv("VASAN_ERR_LOG_PATH") != 0)
@@ -109,7 +117,7 @@ void __attribute__((destructor)) __vasan_fini()
 
 // CallerSide: Function to push the pointer in the stack
 void
-__vasan_info_push(struct callerside_info *x)
+__vasan_info_push(struct vasan_type_info_tmp *x)
 {
     if (!vasan_initialized && !__vasan_init())
         return;
@@ -132,6 +140,68 @@ __vasan_info_push(struct callerside_info *x)
     __vasan_stack_push(vasan_stack, x);
 }
 
+// We've seen a va_start call.
+// Associate the corresponding vasan_type_info_tmp struct with this list
+// and store it in the vasan map
+void
+__vasan_vastart(va_list* list)
+{
+	if (!vasan_initialized && !__vasan_init() && __vasan_stack_top(vasan_stack))
+		return;
+
+	struct vasan_type_info_full* info;
+	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
+	{
+		info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
+		__vasan_hashmap_put(vasan_map, (unsigned long)list, (any_t*)&info);
+	}
+	
+	info->list_ptr = list;
+	info->args_ptr = 0;
+	info->types = __vasan_stack_top(vasan_stack);
+
+	// this unassociated type info is now consumed
+	__vasan_stack_pop(vasan_stack);
+}
+
+// This list is no longer going to be used.
+// Remove it from the vasan map
+void
+__vasan_vaend(va_list* list)
+{
+	if (!vasan_initialized && !__vasan_init())
+		return;
+
+	struct vasan_type_info_full* info;
+	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
+	{
+		__vasan_hashmap_remove(vasan_map, (unsigned long)list);
+//		free(info);
+	}
+}
+
+// Create a copy of another list IN ITS CURRENT STATE!
+void
+__vasan_vacopy(va_list* src, va_list* dst)
+{
+	if (!vasan_initialized && !__vasan_init())
+		return;
+
+	struct vasan_type_info_full* src_info, *dst_info;
+	if (__vasan_hashmap_get(vasan_map, (unsigned long)src, (any_t*)&src_info) == MAP_MISSING)
+		return;
+	
+	if (__vasan_hashmap_get(vasan_map, (unsigned long)dst, (any_t*)&dst_info) == MAP_MISSING)
+	{
+		dst_info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
+		__vasan_hashmap_put(vasan_map, (unsigned long)dst, (any_t*)&dst_info);
+	}
+
+	dst_info->list_ptr = dst;
+	dst_info->args_ptr = src_info->args_ptr;
+	dst_info->types = src_info->types;
+}
+
 // CallerSide: Function to pop the pointer from the stack
 void
 __vasan_info_pop(int i)
@@ -151,7 +221,7 @@ __vasan_check_index(const char* name, unsigned int* index_ptr, unsigned long typ
         return;
 
 	unsigned int index = *index_ptr - 1;
-	struct callerside_info* top_frame = (struct callerside_info*)__vasan_stack_top(vasan_stack);
+	struct vasan_type_info_tmp* top_frame = (struct vasan_type_info_tmp*)__vasan_stack_top(vasan_stack);
 
 	if (!top_frame)
 		return;
@@ -186,6 +256,54 @@ __vasan_check_index(const char* name, unsigned int* index_ptr, unsigned long typ
 		if (!logging_only)
 			exit(-1);
 	}
+}
+
+// New version of the check_index function. You no longer have to figure out
+// the index for this one. You just need a list pointer...
+void
+__vasan_check_index_new(const char* name, va_list* list, unsigned long type)
+{
+    if (!vasan_initialized && !__vasan_init())
+        return;
+
+	struct vasan_type_info_full* info;
+	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
+		return;
+
+	unsigned long index = info->args_ptr;
+
+	if (index < info->types->arg_count)
+	{
+		if (type == info->types->arg_array[index])
+		{
+			// type match
+			return;
+		}
+		else
+		{
+			(fprintf)(fp, "--------------------------\n");
+			(fprintf)(fp, "Error: Type Mismatch \n");
+			(fprintf)(fp, "FuncName::FileName : %s\n", name);
+			(fprintf)(fp, "Index is %d \n", index);
+			(fprintf)(fp, "Callee Type : %lu\n", type);
+			(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+
+			if (!logging_only)
+				exit(-1);
+		}
+	}
+	else
+	{
+		(fprintf)(fp, "--------------------------\n");
+		(fprintf)(fp, "Error: Index greater than Argument Count \n");
+		(fprintf)(fp, "FuncName::FileName : %s\n", name);
+        (fprintf)(fp, "Index is %d \n", index);
+
+		if (!logging_only)
+			exit(-1);
+	}
+
+	info->args_ptr++;
 }
 
 // Callee Side: Function to reset the counter
