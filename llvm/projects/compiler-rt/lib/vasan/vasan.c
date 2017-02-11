@@ -13,13 +13,21 @@
 // This is where we keep all of the type info that has not been associated with
 // a va_list yet. It has to be thread local!
 //
-static __thread struct stack_t* vasan_stack;
+static
+#ifdef VASAN_THREAD_SUPPORT
+__thread
+#endif
+struct stack_t* vasan_stack;
 
 //
 // This is where we keep all of the type info that HAS been associated with a
 // va_list. 
 //
-static __thread map_t vasan_map;
+static
+#ifdef VASAN_THREAD_SUPPORT
+__thread
+#endif
+map_t vasan_map;
 
 //
 // A simple spinlock should suffice to protect accesses to these global maps.
@@ -42,35 +50,48 @@ struct debug {
     void *base;
 };
 
-// We define this as a weak symbol. This symbol is also defined in musl's dynamic linker.
-// If we link vasan into musl dynamic linker, their definition of the symbol will take
-// precedence over ours and we'll see a non-null value. This way, we can disable
-// vasan in the dynamic linker
+// If this points to something, we know we're linked into libc and we should wait
+// until TLS is initialized until we can use VASan
 struct debug* _dl_debug_addr __attribute__((weak));
+
+// This overrides a weak function in libc that gets called when TLS init is complete
+extern void _dl_debug_state(void)
+{
+	_dl_debug_addr = (void*)0;
+}
 
 static unsigned char __vasan_is_tls_active()
 {
-    // We can use TLS if we're not in the dynamic linker ;)
+#if VASAN_THREAD_SUPPORT	
+	// If _dl_debug_addr is not set, we're either not linked into libc
+	// or we ARE linked into libc but TLS is active
     if (!_dl_debug_addr)
         return 1;
     return 0;
+#else
+	return 1;
+#endif
 }
 
 static void __vasan_lock()
 {
+#if VASAN_THREAD_SUPPORT	
 	while(!__sync_bool_compare_and_swap(&spinlock, 0, 1))
 		asm volatile("rep; nop" ::: "memory");
+#endif
 }
 
 static void __vasan_unlock()
 {
+#if VASAN_THREAD_SUPPORT	
 	asm volatile("" ::: "memory");
 	spinlock = 0;
+#endif
 }
 
 static void __vasan_backtrace()
 {
-	#if 0
+#if 0
     void *trace[16];
 	char **messages = (char **)NULL;
 	int i, trace_size = 0;
@@ -81,7 +102,7 @@ static void __vasan_backtrace()
 	for (i=0; i<trace_size; ++i)
 		(fprintf)(fp, "[%d] %s\n", i, messages[i]);
 	free(messages);
-	#endif
+#endif
 }
 
 // We have to refuse to initialize until TLS is active
