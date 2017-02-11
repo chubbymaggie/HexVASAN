@@ -153,7 +153,7 @@ __vasan_vastart(va_list* list)
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
 	{
 		info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
-		__vasan_hashmap_put(vasan_map, (unsigned long)list, (any_t*)&info);
+		__vasan_hashmap_put(vasan_map, (unsigned long)list, (any_t*)info);
 	}
 	
 	info->list_ptr = list;
@@ -176,7 +176,7 @@ __vasan_vaend(va_list* list)
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
 	{
 		__vasan_hashmap_remove(vasan_map, (unsigned long)list);
-//		free(info);
+		free(info);
 	}
 }
 
@@ -194,7 +194,7 @@ __vasan_vacopy(va_list* src, va_list* dst)
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)dst, (any_t*)&dst_info) == MAP_MISSING)
 	{
 		dst_info = (struct vasan_type_info_full*)malloc(sizeof(struct vasan_type_info_full));
-		__vasan_hashmap_put(vasan_map, (unsigned long)dst, (any_t*)&dst_info);
+		__vasan_hashmap_put(vasan_map, (unsigned long)dst, (any_t*)dst_info);
 	}
 
 	dst_info->list_ptr = dst;
