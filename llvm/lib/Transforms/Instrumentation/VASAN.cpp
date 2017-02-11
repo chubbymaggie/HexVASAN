@@ -212,9 +212,9 @@ struct VASAN : public ModulePass {
 
             if ((ft != nullptr) &&
                 ((ft->getIntrinsicID() == llvm::Intrinsic::vastart) ||
-                 (ft->getIntrinsicID() == llvm::Intrinsic::vaend))) {
-
-              if (ft->getIntrinsicID() == llvm::Intrinsic::vastart) {
+                 (ft->getIntrinsicID() == llvm::Intrinsic::vaend) ||
+                  (ft->getIntrinsicID() == llvm::Intrinsic::vacopy))) {
+              if (ft->getIntrinsicID() == llvm::Intrinsic::vastart || (ft->getIntrinsicID() == llvm::Intrinsic::vacopy )) {
                 if (BitCastInst *binst =
                         dyn_cast<BitCastInst>(call_inst->getArgOperand(0))) {
 
