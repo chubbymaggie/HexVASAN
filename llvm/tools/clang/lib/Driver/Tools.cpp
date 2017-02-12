@@ -3109,6 +3109,8 @@ static void linkSanitizerRuntimeDeps(const ToolChain &TC,
   // There's no libdl on FreeBSD.
   if (TC.getTriple().getOS() != llvm::Triple::FreeBSD)
     CmdArgs.push_back("-ldl");
+  else if (TC.getSanitizerArgs().needsVASANBacktraceRt())
+    CmdArgs.push_back("-lexecinfo");
 }
 
 static void
