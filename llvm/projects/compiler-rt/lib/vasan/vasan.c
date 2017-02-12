@@ -9,93 +9,103 @@
 #include "stack.h"
 #include "hashmap.h"
 
+#ifdef __FreeBSD__
+# include <sys/thr.h> // for thr_self
+#else
+# include <unistd.h>  // for syscall
+# ifdef __x86_64__
+#  include <asm/unistd_64.h> // for __NR_gettid
+# else
+#  include <asm/unistd_32.h>
+# endif
+#endif
+
 #define DEBUG
 #define MAXPATH 1000
 
+// Linked list that holds call site info that is not assigned to va_lists yet.
+// This replaces the vasan_stack.
+struct vasan_type_list_elem
+{
+    // id for the thread that inserted this elem
+    int tid;
+    struct vasan_type_info_tmp* info;
+    struct vasan_type_list_elem* next;
+    struct vasan_type_list_elem* prev;
+};
+
 struct vasan_global_state
 {
+	// only holds the call site info
+    struct vasan_type_list_elem* vasan_list;
 
-//
-// This is where we keep all of the type info that has not been associated with
-// a va_list yet. It has to be thread local!
-//
-#ifdef VASAN_THREAD_SUPPORT
-__thread
-#endif
-struct stack_t* vasan_stack;
+	// maps va_lists onto their call site info
+    map_t vasan_map;
 
-//
-// This is where we keep all of the type info that HAS been associated with a
-// va_list. 
-//
-#ifdef VASAN_THREAD_SUPPORT
-__thread
-#endif
-map_t vasan_map;
+	// for statistics only
+	map_t callsite_cnt;
+	map_t vfunc_cnt;
 
-//
-// A simple spinlock should suffice to protect accesses to these global maps.
-// We're not expecting a lot of contention here.
-//
-volatile int spinlock;
-map_t callsite_cnt;
-map_t vfunc_cnt;
-unsigned char logging_only;
-FILE* fp;
+	// protects accesses to global structures
+	// it's just a simple spinlock as we don't
+	// expect much contention
+	volatile int spinlock;
+
+	// if set to 1, we log violations but don't terminate
+	// the program when a violation is triggered
+	unsigned char logging_only;
+
+	// file we're logging to. can be either stderr or a real file
+	FILE* fp;
 };
 
+// Every lib/binary we're linking vasan into will have a vasan_global_state
+// struct, but we ONLY use the vasan_global_state of ONE of the libs/binaries
+//
+// We do this by calculating the address of the global state we're going to
+// use using dlsym. 
 __attribute__((visibility("default"))) struct vasan_global_state _vasan_global =
-{ (struct stack_t*)0, (map_t)0, 0, (map_t)0, (map_t)0, 0, (FILE*)0 };
+{ (struct vasan_type_list_elem*)0, (map_t)0, (map_t)0, (map_t)0, 0, 0, (FILE*)0 };
 
+// This pointer points at the global state we're using.
+// It might or might not be in the same lib/binary in which this pointer
+// is declared (see above).
 static struct vasan_global_state* vasan_global = 0;
+
+// When set to 1, it's safe to access the global state
 static unsigned char vasan_initialized = 0;
 
-// This is musl's debug struct.
-struct debug {
-    int ver;
-    void *head;
-    void (*bp)(void);
-    int state;
-    void *base;
-};
-
-// If this points to something, we know we're linked into libc and we should wait
-// until TLS is initialized until we can use VASan
-struct debug* _dl_debug_addr __attribute__((weak));
-
-// This overrides a weak function in libc that gets called when TLS init is complete
-extern void _dl_debug_state(void)
+// cross-platform gettid func
+static int __vasan_gettid(void)
 {
-	_dl_debug_addr = (void*)0;
-}
+	int ret;
 
-static unsigned char __vasan_is_tls_active()
-{
-#if VASAN_THREAD_SUPPORT	
-	// If _dl_debug_addr is not set, we're either not linked into libc
-	// or we ARE linked into libc but TLS is active
-    if (!_dl_debug_addr)
-        return 1;
-    return 0;
+#if defined(__FreeBSD__)
+	long long_tid;
+    thr_self( &long_tid );
+    ret = long_tid;
+#elif defined(__x86_64__)
+	// can't use the syscall macro here because it's also a vararg func
+	unsigned long long_ret;
+	__asm__ __volatile__ ("syscall" : "=a"(long_ret) : "a"(__NR_gettid) : "rcx", "r11", "memory");
+	ret = long_ret;
 #else
-	return 1;
+	#error "i386 support is not implemented yet"
 #endif
+
+    return ret;
 }
 
 static void __vasan_lock()
 {
-#if VASAN_THREAD_SUPPORT	
 	while(!__sync_bool_compare_and_swap(&vasan_global->spinlock, 0, 1))
 		asm volatile("rep; nop" ::: "memory");
-#endif
 }
 
 static void __vasan_unlock()
 {
-#if VASAN_THREAD_SUPPORT	
 	asm volatile("" ::: "memory");
 	vasan_global->spinlock = 0;
-#endif
 }
 
 static void __vasan_backtrace()
@@ -114,14 +124,64 @@ static void __vasan_backtrace()
 #endif
 }
 
+static struct vasan_type_list_elem* __vasan_list_elem_new()
+{
+	struct vasan_type_list_elem* list = (struct vasan_type_list_elem*)malloc(sizeof(struct vasan_type_list_elem));
+	list->tid  = __vasan_gettid();
+	list->info = (struct vasan_type_info_tmp*)0;
+	list->next = list->prev = (struct vasan_type_list_elem*)0;
+	return list;
+}
+
+static void __vasan_list_insert(struct vasan_type_info_tmp* info)
+{
+	struct vasan_type_list_elem* elem = __vasan_list_elem_new();
+	elem->info = info;
+
+	__vasan_lock();	
+	elem->next = vasan_global->vasan_list->next;
+	elem->prev = vasan_global->vasan_list;
+	if (elem->next)
+		elem->next->prev = elem;
+	vasan_global->vasan_list->next = elem;
+	__vasan_unlock();
+}
+
+// fetches the latest element inserted by this thread
+static struct vasan_type_list_elem* __vasan_list_get()
+{
+	int tid = __vasan_gettid();
+
+	__vasan_lock();
+	for (struct vasan_type_list_elem* tmp = vasan_global->vasan_list->next;
+		 tmp; tmp = tmp->next)
+	{
+		if (tmp->tid == tid)
+		{
+			__vasan_unlock();
+			return tmp;
+		}
+	}
+
+	__vasan_unlock();
+	return (struct vasan_type_list_elem*)0;
+}
+
+static void __vasan_list_unlink_and_free(struct vasan_type_list_elem* elem)
+{
+	__vasan_lock();
+	if (elem->next)
+		elem->next->prev = elem->prev;
+	elem->prev->next = elem->next;
+	__vasan_unlock();
+	free(elem);
+}
+
 // We have to refuse to initialize until TLS is active
 static unsigned char __vasan_init()
 {
 	char path[MAXPATH];
 	
-    if (!__vasan_is_tls_active())
-        return 0;
-
 	// make sure everyone uses the same global state
 	vasan_global = dlsym(RTLD_DEFAULT, "_vasan_global");
 
@@ -130,11 +190,17 @@ static unsigned char __vasan_init()
 		vasan_global = &_vasan_global;
 
 	vasan_initialized = 1;
-	
-	if (vasan_global->vasan_stack)
-		return 1;
 
-	vasan_global->vasan_stack = __vasan_stack_new();
+	// make global state init thread safe
+	__vasan_lock();
+	
+	if (vasan_global->vasan_list)
+	{
+		__vasan_unlock();
+		return 1;
+	}
+
+	vasan_global->vasan_list = __vasan_list_elem_new();
 	vasan_global->vasan_map = __vasan_hashmap_new();
 
 	if (getenv("VASAN_ERR_LOG_PATH") != 0)
@@ -155,11 +221,14 @@ static unsigned char __vasan_init()
 	if (!vasan_global->fp)
 		vasan_global->fp = stderr;
 
+	__vasan_unlock();
     return 1;
 }
 
 void __attribute__((destructor)) __vasan_fini()
 {
+	// TODO: Do a proper cleanup here
+	
 	/*
 	stack_free(vasan_global->vasan_stack);
 	if (vasan_global->callsite_cnt)
@@ -179,8 +248,8 @@ void __attribute__((destructor)) __vasan_fini()
 void
 __vasan_info_push(struct vasan_type_info_tmp *x)
 {
-    if (!vasan_initialized && !__vasan_init())
-        return;
+    if (!vasan_initialized)
+		__vasan_init();
 
 	if (vasan_global->callsite_cnt)
 	{
@@ -197,7 +266,7 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 		__vasan_unlock();
 	}
 
-    __vasan_stack_push(vasan_global->vasan_stack, x);
+	__vasan_list_insert(x);
 }
 
 // We've seen a va_start call.
@@ -206,8 +275,15 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 void
 __vasan_vastart(va_list* list)
 {
-	if ((!vasan_initialized && !__vasan_init()) || !__vasan_stack_top(vasan_global->vasan_stack))
+	if (!vasan_initialized)
+		__vasan_init();
+
+	struct vasan_type_list_elem* latest = __vasan_list_get();
+
+	if (!latest)
 		return;
+
+	__vasan_lock();
 
 	struct vasan_type_info_full* info;
 	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
@@ -218,10 +294,9 @@ __vasan_vastart(va_list* list)
 	
 	info->list_ptr = list;
 	info->args_ptr = 0;
-	info->types = __vasan_stack_top(vasan_global->vasan_stack);
+	info->types = latest->info;
 
-	// this unassociated type info is now consumed
-	__vasan_stack_pop(vasan_global->vasan_stack);
+	__vasan_unlock();
 }
 
 // This list is no longer going to be used.
@@ -229,14 +304,20 @@ __vasan_vastart(va_list* list)
 void
 __vasan_vaend(va_list* list)
 {
-	if (!vasan_initialized && !__vasan_init())
-		return;
+	if (!vasan_initialized)
+		__vasan_init();
 
+	__vasan_lock();
 	struct vasan_type_info_full* info;
 	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
 	{
 		__vasan_hashmap_remove(vasan_global->vasan_map, (unsigned long)list);
+		__vasan_unlock();
 		free(info);
+	}
+	else
+	{
+		__vasan_unlock();
 	}
 }
 
@@ -244,12 +325,16 @@ __vasan_vaend(va_list* list)
 void
 __vasan_vacopy(va_list* src, va_list* dst)
 {
-	if (!vasan_initialized && !__vasan_init())
-		return;
+	if (!vasan_initialized)
+		__vasan_init();
 
+	__vasan_lock();
 	struct vasan_type_info_full* src_info, *dst_info;
 	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)src, (any_t*)&src_info) == MAP_MISSING)
+	{
+		__vasan_unlock();
 		return;
+	}
 	
 	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)dst, (any_t*)&dst_info) == MAP_MISSING)
 	{
@@ -260,16 +345,17 @@ __vasan_vacopy(va_list* src, va_list* dst)
 	dst_info->list_ptr = dst;
 	dst_info->args_ptr = src_info->args_ptr;
 	dst_info->types = src_info->types;
+	__vasan_unlock();
 }
 
 // CallerSide: Function to pop the pointer from the stack
 void
 __vasan_info_pop(int i)
 {
-    if (!vasan_initialized && !__vasan_init())
-        return;
+    if (!vasan_initialized)
+		__vasan_init();
 
-    __vasan_stack_pop(vasan_global->vasan_stack);
+	__vasan_list_unlink_and_free(__vasan_list_get());
 }
 
 
@@ -278,12 +364,20 @@ __vasan_info_pop(int i)
 void
 __vasan_check_index_new(va_list* list, unsigned long type)
 {
-    if (!vasan_initialized && !__vasan_init())
-        return;
+    if (!vasan_initialized)
+		__vasan_init();
 
+	__vasan_lock();
 	struct vasan_type_info_full* info;
 	if (__vasan_hashmap_get(vasan_global->vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
+	{
+		__vasan_unlock();
 		return;
+	}
+	else
+	{
+		__vasan_unlock();
+	}
 
 	unsigned long index = info->args_ptr;
 
@@ -328,8 +422,8 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 void
 __vasan_assign_id(int i)
 {
-    if (!vasan_initialized && !__vasan_init())
-        return;
+    if (!vasan_initialized)
+		__vasan_init();
 
     if (vasan_global->vfunc_cnt)
 	{
