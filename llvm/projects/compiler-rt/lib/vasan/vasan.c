@@ -125,9 +125,10 @@ static unsigned char __vasan_init()
 	// make sure everyone uses the same global state
 	vasan_global = dlsym(RTLD_DEFAULT, "_vasan_global");
 
-  // assume dlsym() returns null only when it is staic link
-  if (!vasan_global)
-    vasan_global = &_vasan_global;
+	// assume dlsym() returns null only when it is staic link
+	if (!vasan_global)
+		vasan_global = &_vasan_global;
+
 	vasan_initialized = 1;
 	
 	if (vasan_global->vasan_stack)
