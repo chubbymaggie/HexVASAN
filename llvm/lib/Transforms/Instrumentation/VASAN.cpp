@@ -281,7 +281,7 @@ struct VASAN : public ModulePass {
 					user_count++;
 
 					ConstantExpr *bc = dyn_cast<ConstantExpr>(func_users);
-					while (bc != nullptr && bc->isCast()) {
+					while (bc != nullptr && bc->isCast() && !bc->user_empty()) {
 						func_users = *bc->users().begin();
 						bc = dyn_cast<ConstantExpr>(func_users);
 					}
