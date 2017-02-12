@@ -1,10 +1,10 @@
-#ifndef NO_BACKTRACE
-#include <execinfo.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#ifndef NO_BACKTRACE
+#include <execinfo.h>
+#endif
 #include "vasan.h"
 #include "stack.h"
 #include "hashmap.h"
