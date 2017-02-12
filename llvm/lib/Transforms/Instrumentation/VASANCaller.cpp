@@ -229,10 +229,9 @@ uint64_t VASANCaller::hashType(Type *T, Value *V) {
         return Result;
       }
 
-    } else {
+    }
       Result = 15;
       return Result;
-    }
 
   } else {
     Result = hashing(Result, T->getTypeID());
