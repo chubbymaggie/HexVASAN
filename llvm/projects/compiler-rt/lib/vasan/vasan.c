@@ -124,6 +124,10 @@ static unsigned char __vasan_init()
 
 	// make sure everyone uses the same global state
 	vasan_global = dlsym(RTLD_DEFAULT, "_vasan_global");
+
+  // assume dlsym() returns null only when it is staic link
+  if (!vasan_global)
+    vasan_global = &_vasan_global;
 	vasan_initialized = 1;
 	
 	if (vasan_global->vasan_stack)
@@ -163,7 +167,7 @@ void __attribute__((destructor)) __vasan_fini()
 	hashmap_free(vasan_global->vfunc_cnt);
 	*/
 
-	if (vasan_global->fp && vasan_global->fp != stderr)
+	if (vasan_global && vasan_global->fp && vasan_global->fp != stderr)
 	{
 		fclose(vasan_global->fp);
 		vasan_global->fp = (FILE*)0;
