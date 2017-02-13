@@ -157,12 +157,12 @@ namespace llvm
 			// We need to find this instruction: %gp_offset_p = getelementptr
 			// inbounds %struct.__va_list_tag, %struct.__va_list_tag*
 			// %arraydecay2, i32 0, i32 0
-      //we actually need to find both gp_offset and fp_offset
+			//we actually need to find both gp_offset and fp_offset
 
-      //for struct we just want to instrument once
-      auto search = check_once.find(I.getPointerOperand());
-      if(search != check_once.end() ) 
-       return;
+			//for struct we just want to instrument once
+			auto search = check_once.find(I.getPointerOperand());
+			if(search != check_once.end() ) 
+				return;
  
 			auto BaseType = dyn_cast<PointerType>(I.getOperand(0)->getType());
 
@@ -181,7 +181,9 @@ namespace llvm
 			auto Index = dyn_cast<ConstantInt>(I.getOperand(1));
 			auto Field = dyn_cast<ConstantInt>(I.getOperand(2));
 
-			if (!Index ||	Index->getZExtValue() != 0 )
+			if (!Index || Index->getZExtValue() != 0 ||
+				// don't instrument accesses to overflow_arg_area and reg_save_area...
+				(Field->getZExtValue() != 0 && Field->getZExtValue() != 1))
 				return;
 
 			// Now trace through the IR to find the phi node that
@@ -209,8 +211,8 @@ namespace llvm
 			Constant* Func = N_M.getOrInsertFunction("__vasan_check_index_new",
 													 VoidTy, valistPtr, Int64Ty, nullptr);
 
-      // if we called the runtime for one instruction, we don't want to call it twice
-      check_once.insert(I.getPointerOperand());   
+			// if we called the runtime for one instruction, we don't want to call it twice
+			check_once.insert(I.getPointerOperand());   
 			B.CreateCall(Func, {listPtr, ConstantInt::get(Int64Ty, type_hash)});
 		}
 		
