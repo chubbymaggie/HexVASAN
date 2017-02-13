@@ -129,7 +129,7 @@ static struct vasan_type_list_elem* __vasan_list_elem_new()
 {
 	struct vasan_type_list_elem* list = (struct vasan_type_list_elem*)malloc(sizeof(struct vasan_type_list_elem));
 	list->tid  = __vasan_gettid();
-	list->consumed = 1;
+	list->consumed = 0;
 	list->info = (struct vasan_type_info_tmp*)0;
 	list->next = list->prev = (struct vasan_type_list_elem*)0;
 	return list;
