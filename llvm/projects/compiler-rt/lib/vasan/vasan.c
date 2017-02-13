@@ -150,7 +150,7 @@ static void __vasan_list_insert(struct vasan_type_info_tmp* info)
 }
 
 // fetches the latest element inserted by this thread
-static struct vasan_type_list_elem* __vasan_list_get()
+static struct vasan_type_list_elem* __vasan_list_get(unsigned char fetch_consumed)
 {
 	int tid = __vasan_gettid();
 
@@ -162,7 +162,7 @@ static struct vasan_type_list_elem* __vasan_list_get()
 		{
 			// don't return the element if it has already been consumed.
 			// that means it's just waiting to be cleaned up
-			if (tmp->consumed)
+			if (tmp->consumed && !fetch_consumed)
 				break;
 			__vasan_unlock();
 			return tmp;
@@ -292,7 +292,7 @@ __vasan_vastart(va_list* list)
 	if (!vasan_initialized)
 		__vasan_init();
 
-	struct vasan_type_list_elem* latest = __vasan_list_get();
+	struct vasan_type_list_elem* latest = __vasan_list_get(0);
 
 	if (!latest)
 		return;
@@ -370,7 +370,7 @@ __vasan_info_pop(int i)
     if (!vasan_initialized)
 		__vasan_init();
 
-	__vasan_list_unlink_and_free(__vasan_list_get());
+	__vasan_list_unlink_and_free(__vasan_list_get(1));
 }
 
 
