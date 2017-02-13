@@ -191,6 +191,19 @@ static unsigned char __vasan_init()
 
 	vasan_initialized = 1;
 
+	FILE *fp = NULL;
+	char *home = getenv("VASAN_ERR_LOG_PATH");
+
+	if (home != 0)
+	{
+		strcpy(path, home);
+		strcat(path, "error.txt");
+
+		// open log file and remember the fp
+		fp = fopen(path, "a+");
+	}
+
+
 	// make global state init thread safe
 	__vasan_lock();
 	
@@ -203,19 +216,14 @@ static unsigned char __vasan_init()
 	vasan_global->vasan_list = __vasan_list_elem_new();
 	vasan_global->vasan_map = __vasan_hashmap_new();
 
-	if (getenv("VASAN_ERR_LOG_PATH") != 0)
+	if (fp)
 	{
-		char *home = getenv("VASAN_ERR_LOG_PATH");
-		strcpy(path, home);
-		strcat(path, "error.txt");
-		vasan_global->logging_only = 1;
-
 		// Only track statistics if we're in logging mode
 		vasan_global->callsite_cnt = __vasan_hashmap_new();
 		vasan_global->vfunc_cnt = __vasan_hashmap_new();
 
-		// open log file and remember the fp
-		vasan_global->fp = fopen(path, "a+");
+		// remember the fp
+		vasan_global->fp = fp;
 	}
 
 	if (!vasan_global->fp)
@@ -393,7 +401,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 		{
 			(fprintf)(vasan_global->fp, "--------------------------\n");
 			(fprintf)(vasan_global->fp, "Error: Type Mismatch \n");
-			(fprintf)(vasan_global->fp, "Index is %d \n", index);
+			(fprintf)(vasan_global->fp, "Index is %lu \n", index);
 			(fprintf)(vasan_global->fp, "Callee Type : %lu\n", type);
 			(fprintf)(vasan_global->fp, "Caller Type : %lu\n", info->types->arg_array[index]);
 			fflush(vasan_global->fp);
