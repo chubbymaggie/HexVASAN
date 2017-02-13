@@ -29,6 +29,7 @@ struct vasan_type_list_elem
 {
     // id for the thread that inserted this elem
     int tid;
+	unsigned char consumed;
     struct vasan_type_info_tmp* info;
     struct vasan_type_list_elem* next;
     struct vasan_type_list_elem* prev;
@@ -128,6 +129,7 @@ static struct vasan_type_list_elem* __vasan_list_elem_new()
 {
 	struct vasan_type_list_elem* list = (struct vasan_type_list_elem*)malloc(sizeof(struct vasan_type_list_elem));
 	list->tid  = __vasan_gettid();
+	list->consumed = 1;
 	list->info = (struct vasan_type_info_tmp*)0;
 	list->next = list->prev = (struct vasan_type_list_elem*)0;
 	return list;
@@ -158,6 +160,10 @@ static struct vasan_type_list_elem* __vasan_list_get()
 	{
 		if (tmp->tid == tid)
 		{
+			// don't return the element if it has already been consumed.
+			// that means it's just waiting to be cleaned up
+			if (tmp->consumed)
+				break;
 			__vasan_unlock();
 			return tmp;
 		}
@@ -303,6 +309,7 @@ __vasan_vastart(va_list* list)
 	info->list_ptr = list;
 	info->args_ptr = 0;
 	info->types = latest->info;
+	latest->consumed = 1;
 
 	__vasan_unlock();
 }
