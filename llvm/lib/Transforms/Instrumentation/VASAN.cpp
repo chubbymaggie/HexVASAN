@@ -174,7 +174,7 @@ namespace llvm
 
 			if (!Index || !Field ||
 				Index->getZExtValue() != 0 ||
-				Field->getZExtValue() != 0)
+				(Field->getZExtValue() != 0 && Field->getZExtValue() != 1))
 				return;
 
 			// Now trace through the IR to find the phi node that
