@@ -29,7 +29,8 @@ struct vasan_type_list_elem
 {
     // id for the thread that inserted this elem
     int tid;
-	unsigned char consumed;
+	// dummy element that indicates that we should not check
+	unsigned char no_recurse;
     struct vasan_type_info_tmp* info;
     struct vasan_type_list_elem* next;
     struct vasan_type_list_elem* prev;
@@ -129,19 +130,15 @@ static struct vasan_type_list_elem* __vasan_list_elem_new()
 {
 	struct vasan_type_list_elem* list = (struct vasan_type_list_elem*)malloc(sizeof(struct vasan_type_list_elem));
 	list->tid  = __vasan_gettid();
-	list->consumed = 0;
+	list->no_recurse = 0;
 	list->info = (struct vasan_type_info_tmp*)0;
 	list->next = list->prev = (struct vasan_type_list_elem*)0;
 	return list;
 }
 
-static void __vasan_list_insert(struct vasan_type_info_tmp* info)
+static void __vasan_list_insert_raw_elem(struct vasan_type_list_elem* elem)
 {
-	struct vasan_type_list_elem* elem = __vasan_list_elem_new();
-	elem->info = info;
-
-	__vasan_lock();	
-		
+	__vasan_lock();			
 	elem->next = vasan_global->vasan_list->next;
 	elem->prev = vasan_global->vasan_list;
 	if (elem->next)
@@ -150,8 +147,15 @@ static void __vasan_list_insert(struct vasan_type_info_tmp* info)
 	__vasan_unlock();
 }
 
+static void __vasan_list_insert(struct vasan_type_info_tmp* info)
+{
+	struct vasan_type_list_elem* elem = __vasan_list_elem_new();
+	elem->info = info;
+	__vasan_list_insert_raw_elem(elem);
+}
+
 // fetches the latest element inserted by this thread
-static struct vasan_type_list_elem* __vasan_list_get(unsigned char fetch_consumed)
+static struct vasan_type_list_elem* __vasan_list_get()
 {
 	int tid = __vasan_gettid();
 
@@ -161,9 +165,7 @@ static struct vasan_type_list_elem* __vasan_list_get(unsigned char fetch_consume
 	{
 		if (tmp->tid == tid)
 		{
-			// don't return the element if it has already been consumed.
-			// that means it's just waiting to be cleaned up
-			if (tmp->consumed && !fetch_consumed)
+			if (tmp->no_recurse)
 				break;
 			__vasan_unlock();
 			return tmp;
@@ -198,18 +200,6 @@ static unsigned char __vasan_init()
 
 	vasan_initialized = 1;
 
-	FILE *fp = NULL;
-	char *home = getenv("VASAN_ERR_LOG_PATH");
-
-	if (home != 0)
-	{
-		strcpy(path, home);
-		strcat(path, "error.txt");
-
-		// open log file and remember the fp
-		fp = fopen(path, "a+");
-	}
-
 	// make global state init thread safe
 	__vasan_lock();
 	
@@ -222,8 +212,14 @@ static unsigned char __vasan_init()
 	vasan_global->vasan_list = __vasan_list_elem_new();
 	vasan_global->vasan_map = __vasan_hashmap_new();
 
-	if (fp)
+	FILE *fp = NULL;
+	char *home = getenv("VASAN_ERR_LOG_PATH");
+
+	if (home != 0)
 	{
+		strcpy(path, home);
+		strcat(path, "error.txt");
+
 		// Only track statistics if we're in logging mode
 		vasan_global->callsite_cnt = __vasan_hashmap_new();
 		vasan_global->vfunc_cnt = __vasan_hashmap_new();
@@ -231,6 +227,18 @@ static unsigned char __vasan_init()
 		// remember the fp
 		vasan_global->fp = fp;
 		vasan_global->logging_only = 1;
+
+		// open log file and remember the fp. fopen is a vararg func. We must
+		// ensure that it doesn't recursively call __vasan_init
+		__vasan_unlock();
+		struct vasan_type_list_elem* no_recurse = __vasan_list_elem_new();
+		no_recurse->no_recurse = 1;
+		__vasan_list_insert_raw_elem(no_recurse);
+		
+		fp = fopen(path, "a+");
+
+		__vasan_list_unlink_and_free(no_recurse);
+		__vasan_lock();
 	}
 
 	if (!vasan_global->fp)
@@ -265,16 +273,6 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 {
 	if (!vasan_initialized)
 		__vasan_init();
-
-	// hack for fopen() calling variadic function during __vasan_init().
-	// FIXME: it's possible that this get lock() faster than __vasan_init()...
-	__vasan_lock();
-	if (!vasan_global->vasan_list)
-	{
-		__vasan_unlock();
-		return;
-	}
-	__vasan_unlock();
 
 	if (vasan_global->callsite_cnt)
 	{
@@ -320,7 +318,6 @@ __vasan_vastart(va_list* list)
 	info->list_ptr = list;
 	info->args_ptr = 0;
 	info->types = latest->info;
-	latest->consumed = 1;
 
 	__vasan_unlock();
 }
@@ -381,15 +378,6 @@ __vasan_info_pop(int i)
 	if (!vasan_initialized)
 		__vasan_init();
 
-	// hack for fopen() calling variadic function during __vasan_init().
-	__vasan_lock();
-	if (!vasan_global->vasan_list)
-	{
-		__vasan_unlock();
-		return;
-	}
-	__vasan_unlock();
-
 	__vasan_list_unlink_and_free(__vasan_list_get(1));
 }
 
@@ -415,7 +403,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 	}
 
 	unsigned long index = info->args_ptr;
-
+	
 	if (index < info->types->arg_count)
 	{
 		if (type == info->types->arg_array[index])
@@ -426,6 +414,11 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 		}
 		else
 		{
+			// Temporarily disable recursion so we can safely call fprintf
+			struct vasan_type_list_elem* no_recurse = __vasan_list_elem_new();
+			no_recurse->no_recurse = 1;
+			__vasan_list_insert_raw_elem(no_recurse);
+			
 			(fprintf)(vasan_global->fp, "--------------------------\n");
 			(fprintf)(vasan_global->fp, "Error: Type Mismatch \n");
 			(fprintf)(vasan_global->fp, "Index is %lu \n", index);
@@ -434,17 +427,26 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 			fflush(vasan_global->fp);
 			__vasan_backtrace();
 
+			__vasan_list_unlink_and_free(no_recurse);
+
 			if (!vasan_global->logging_only)
 				exit(-1);
 		}
 	}
 	else
 	{
+		// Temporarily disable recursion so we can safely call fprintf
+		struct vasan_type_list_elem* no_recurse = __vasan_list_elem_new();
+		no_recurse->no_recurse = 1;
+		__vasan_list_insert_raw_elem(no_recurse);
+
 		(fprintf)(vasan_global->fp, "--------------------------\n");
 		(fprintf)(vasan_global->fp, "Error: Index greater than Argument Count \n");
         (fprintf)(vasan_global->fp, "Index is %d \n", index);
 		fflush(vasan_global->fp);
 		__vasan_backtrace();
+
+		__vasan_list_unlink_and_free(no_recurse);
 
 		if (!vasan_global->logging_only)
 			exit(-1);
