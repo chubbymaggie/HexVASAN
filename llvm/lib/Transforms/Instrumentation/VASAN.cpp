@@ -77,6 +77,8 @@ namespace llvm
 	public:
 		VASANVisitor(Module& M) : N_M(M) { }
 
+		std::map<Value*, std::set<BasicBlock*>*> checked;
+
 		void instrumentVAArgs();
 		
 		void visitCallInst(CallInst& I)
@@ -184,21 +186,39 @@ namespace llvm
 			if (!BB || !*succ_begin(BB) || !*succ_begin(*succ_begin(BB)))
 				return;
 
+			// If this value has already been checked within this basic block
+			// then don't test it again
+			Type *VoidTy = Type::getVoidTy(N_M.getContext());
+			Type *Int64Ty = Type::getInt64Ty(N_M.getContext());
+			Type* valistPtr = PointerType::getUnqual(Type::getInt8Ty(N_M.getContext()));
+			Value* listPtr = I.getOperand(0);
+
+			auto InstrumentedBBs = checked.find(listPtr);
+			if (InstrumentedBBs != checked.end())
+			{
+				auto InstrumentedBB = (*InstrumentedBBs).second->find(BB);
+				if (InstrumentedBB != (*InstrumentedBBs).second->end())
+					return;
+				else
+					(*InstrumentedBBs).second->insert(BB);
+			}
+			else
+			{
+				std::set<BasicBlock*>* newBBs = new std::set<BasicBlock*>;
+				newBBs->insert(BB);
+				checked.insert(std::make_pair(listPtr, newBBs));
+			}
+
+			IRBuilder<> B(&I);
+			if (listPtr->getType() != valistPtr)
+				listPtr = B.CreateBitCast(listPtr, valistPtr);
+
 			auto CollapseNode = *succ_begin(*succ_begin(BB));
 			unsigned long type_hash = 0;
 
 			if (PHINode *phi = dyn_cast<PHINode>(CollapseNode->begin()))
-				type_hash =	hashType(phi->getType()->getPointerElementType());
-			
-			Type *VoidTy = Type::getVoidTy(N_M.getContext());
-			Type *Int64Ty = Type::getInt64Ty(N_M.getContext());
-			Type* valistPtr = PointerType::getUnqual(Type::getInt8Ty(N_M.getContext()));
-			IRBuilder<> B(&I);
-			
-			Value* listPtr = I.getOperand(0);
-			if (listPtr->getType() != valistPtr)
-				listPtr = B.CreateBitCast(listPtr, valistPtr);
-
+				type_hash =	hashType(phi->getType()->getPointerElementType());		 
+		   
 			Constant* Func = N_M.getOrInsertFunction("__vasan_check_index_new",
 													 VoidTy, valistPtr, Int64Ty, nullptr);
 			B.CreateCall(Func, {listPtr, ConstantInt::get(Int64Ty, type_hash)});
