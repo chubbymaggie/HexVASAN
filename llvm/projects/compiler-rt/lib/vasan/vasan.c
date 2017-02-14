@@ -230,6 +230,7 @@ static unsigned char __vasan_init()
 
 		// remember the fp
 		vasan_global->fp = fp;
+		vasan_global->logging_only = 1;
 	}
 
 	if (!vasan_global->fp)
