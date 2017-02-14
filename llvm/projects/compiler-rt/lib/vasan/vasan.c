@@ -224,10 +224,6 @@ static unsigned char __vasan_init()
 		vasan_global->callsite_cnt = __vasan_hashmap_new();
 		vasan_global->vfunc_cnt = __vasan_hashmap_new();
 
-		// remember the fp
-		vasan_global->fp = fp;
-		vasan_global->logging_only = 1;
-
 		// open log file and remember the fp. fopen is a vararg func. We must
 		// ensure that it doesn't recursively call __vasan_init
 		__vasan_unlock();
@@ -239,6 +235,10 @@ static unsigned char __vasan_init()
 
 		__vasan_list_unlink_and_free(no_recurse);
 		__vasan_lock();
+
+		// remember the fp
+		vasan_global->fp = fp;
+		vasan_global->logging_only = 1;
 	}
 
 	if (!vasan_global->fp)
