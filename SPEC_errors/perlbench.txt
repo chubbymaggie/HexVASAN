@@ -1,0 +1,293 @@
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b5f73: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8385 (discriminator 1)
+[2] 0x4b3680: Perl_sv_vsetpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8282
+[3] 0x4d8a6a: Perl_vmess at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1006
+[4] 0x4d900e: S_vdie_croak_common at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1096 (discriminator 1)
+[5] 0x4d93e2: Perl_vdie at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1174
+[6] 0x4d952a: Perl_die at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1204
+[7] 0x48490b: Perl_pp_die at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/pp_sys.c:518
+[8] 0x4a4823: Perl_runops_standard at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/run.c:37 (discriminator 1)
+[9] 0x44fce6: Perl_call_sv at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:2301
+[10] 0x44d27c: Perl_call_list at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4779
+[11] 0x43fc70: Perl_newATTRSUB at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/op.c:4485
+[12] 0x459f58: Perl_yyparse at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perly.c:1858
+[13] 0x4703b3: S_doeval at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/pp_ctl.c:2907
+[14] 0x471990: Perl_pp_require at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/pp_ctl.c:3356 (discriminator 1)
+[15] 0x4a4823: Perl_runops_standard at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/run.c:37 (discriminator 1)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b5f73: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8385 (discriminator 1)
+[2] 0x4b3680: Perl_sv_vsetpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8282
+[3] 0x4d8a6a: Perl_vmess at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1006
+[4] 0x4d900e: S_vdie_croak_common at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1096 (discriminator 1)
+[5] 0x4d93e2: Perl_vdie at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1174
+[6] 0x4d952a: Perl_die at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/util.c:1204
+[7] 0x48490b: Perl_pp_die at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/pp_sys.c:518
+[8] 0x4a4823: Perl_runops_standard at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/run.c:37 (discriminator 1)
+[9] 0x44f3f4: Perl_my_exit at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4859
+[10] 0x459548: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:100
+[11] 0x7efee574cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[12] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7f5054979f45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e02d: S_parse_body at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:1474
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x4516db: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4627
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451775: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4633
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
+--------------------------
+Error: Type Mismatch 
+Index is 0 
+Callee Type : 15
+Caller Type : 13
+Backtrace:
+[0] 0x41ad79: __vasan_backtrace at /home/stijn/HexVASan/llvm/projects/compiler-rt/lib/vasan/vasan.c:121
+[1] 0x4b71ec: Perl_sv_vcatpvfn at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8777 (discriminator 1)
+[2] 0x4abe15: Perl_sv_setpvf at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/sv.c:8107
+[3] 0x451803: S_incpush at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4637
+[4] 0x44e331: S_init_perllib at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perl.c:4397
+[5] 0x459538: main at /home/stijn/spec2006/spec2006vasan/benchspec/CPU2006/400.perlbench/build/build_base_vasan.0000/perlmain.c:97
+[6] 0x7fe8ed74cf45: __libc_start_main+0xf5 in /lib/x86_64-linux-gnu/libc.so.6 (no debug syms found)
+[7] 0x41a3c1:  in ../run_base_ref_vasan.0001/perlbench_base.vasan (no debug syms found)
