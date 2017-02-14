@@ -141,6 +141,7 @@ static void __vasan_list_insert(struct vasan_type_info_tmp* info)
 	elem->info = info;
 
 	__vasan_lock();	
+		
 	elem->next = vasan_global->vasan_list->next;
 	elem->prev = vasan_global->vasan_list;
 	if (elem->next)
@@ -209,7 +210,6 @@ static unsigned char __vasan_init()
 		fp = fopen(path, "a+");
 	}
 
-
 	// make global state init thread safe
 	__vasan_lock();
 	
@@ -262,8 +262,18 @@ void __attribute__((destructor)) __vasan_fini()
 void
 __vasan_info_push(struct vasan_type_info_tmp *x)
 {
-    if (!vasan_initialized)
+	if (!vasan_initialized)
 		__vasan_init();
+
+	// hack for fopen() calling variadic function during __vasan_init().
+	// FIXME: it's possible that this get lock() faster than __vasan_init()...
+	__vasan_lock();
+	if (!vasan_global->vasan_list)
+	{
+		__vasan_unlock();
+		return;
+	}
+	__vasan_unlock();
 
 	if (vasan_global->callsite_cnt)
 	{
@@ -367,8 +377,17 @@ __vasan_vacopy(va_list* src, va_list* dst)
 void
 __vasan_info_pop(int i)
 {
-    if (!vasan_initialized)
+	if (!vasan_initialized)
 		__vasan_init();
+
+	// hack for fopen() calling variadic function during __vasan_init().
+	__vasan_lock();
+	if (!vasan_global->vasan_list)
+	{
+		__vasan_unlock();
+		return;
+	}
+	__vasan_unlock();
 
 	__vasan_list_unlink_and_free(__vasan_list_get(1));
 }
@@ -379,7 +398,7 @@ __vasan_info_pop(int i)
 void
 __vasan_check_index_new(va_list* list, unsigned long type)
 {
-    if (!vasan_initialized)
+	if (!vasan_initialized)
 		__vasan_init();
 
 	__vasan_lock();
@@ -437,10 +456,10 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 void
 __vasan_assign_id(int i)
 {
-    if (!vasan_initialized)
+	if (!vasan_initialized)
 		__vasan_init();
 
-    if (vasan_global->vfunc_cnt)
+	if (vasan_global->vfunc_cnt)
 	{
 		__vasan_lock();
 		int* cnt;
