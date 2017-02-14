@@ -100,12 +100,12 @@ static int __vasan_gettid(void)
 static void __vasan_lock()
 {
 	while(!__sync_bool_compare_and_swap(&vasan_global->spinlock, 0, 1))
-		asm volatile("rep; nop" ::: "memory");
+		__asm__ __volatile__("rep; nop" ::: "memory");
 }
 
 static void __vasan_unlock()
 {
-	asm volatile("" ::: "memory");
+	__asm__ __volatile__("" ::: "memory");
 	vasan_global->spinlock = 0;
 }
 
