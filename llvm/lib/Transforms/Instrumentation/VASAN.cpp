@@ -78,9 +78,7 @@ namespace llvm
 		VASANVisitor(Module& M) : N_M(M) { }
 
 		void instrumentVAArgs();
-
-		std::set<Value *> check_once;
-
+		
 		void visitCallInst(CallInst& I)
 		{
 			Function *ft = I.getCalledFunction();
@@ -157,17 +155,10 @@ namespace llvm
 			// We need to find this instruction: %gp_offset_p = getelementptr
 			// inbounds %struct.__va_list_tag, %struct.__va_list_tag*
 			// %arraydecay2, i32 0, i32 0
-			//we actually need to find both gp_offset and fp_offset
-
-			//for struct we just want to instrument once
-			auto search = check_once.find(I.getPointerOperand());
-			if(search != check_once.end() ) 
-				return;
- 
 			auto BaseType = dyn_cast<PointerType>(I.getOperand(0)->getType());
 
 			if (!BaseType)
-			 return;
+				return;
 
 			auto PointeeType = dyn_cast<StructType>(BaseType->getTypeAtIndex((unsigned)0));
 
@@ -177,12 +168,12 @@ namespace llvm
 				return;
 				
 			// Ok. this is a definite va_arg op. now we just need to verify that
-			// For gp_offset field will be 0, but for fp_offset field will be 1
+			// operands 1 and 2 are null
 			auto Index = dyn_cast<ConstantInt>(I.getOperand(1));
 			auto Field = dyn_cast<ConstantInt>(I.getOperand(2));
 
-			if (!Index || Index->getZExtValue() != 0 ||
-				// don't instrument accesses to overflow_arg_area and reg_save_area...
+			if (!Index || !Field ||
+				Index->getZExtValue() != 0 ||
 				(Field->getZExtValue() != 0 && Field->getZExtValue() != 1))
 				return;
 
@@ -210,9 +201,6 @@ namespace llvm
 
 			Constant* Func = N_M.getOrInsertFunction("__vasan_check_index_new",
 													 VoidTy, valistPtr, Int64Ty, nullptr);
-
-			// if we called the runtime for one instruction, we don't want to call it twice
-			check_once.insert(I.getPointerOperand());   
 			B.CreateCall(Func, {listPtr, ConstantInt::get(Int64Ty, type_hash)});
 		}
 		
