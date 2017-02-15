@@ -456,7 +456,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 }
 
 // Callee Side: Function to reset the counter
-void
+/*void
 __vasan_assign_id(int i)
 {
 	if (!vasan_initialized)
@@ -476,4 +476,4 @@ __vasan_assign_id(int i)
 			*cnt = *cnt + 1;
 		__vasan_unlock();
 	}
-}
+}*/

@@ -348,7 +348,7 @@ struct VASAN : public ModulePass {
 					func_va << "\t" << addrtaken << "\t" << definition << "\n";
 				}
 
-				for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
+				/*for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
 					BasicBlock &b = *BB;
 					for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
 
@@ -367,7 +367,7 @@ struct VASAN : public ModulePass {
 							}
 						}
 					}
-				}
+				}*/
 			}
 			func_va.close();
 		}
