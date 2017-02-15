@@ -524,7 +524,7 @@ static unsigned char __vasan_init()
 	if (fp)
 	{
 		__vasan_unlock();
-		return;
+		return 0;
 	}
 
 	char *home = getenv("VASAN_ERR_LOG_PATH");
