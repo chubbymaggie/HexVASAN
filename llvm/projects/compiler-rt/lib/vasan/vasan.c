@@ -175,12 +175,12 @@ static void __vasan_backtrace()
 static void __vasan_lock()
 {
 	while(!__sync_bool_compare_and_swap(&spinlock, 0, 1))
-		asm volatile("rep; nop" ::: "memory");
+		__asm__ __volatile__("rep; nop" ::: "memory");
 }
 
 static void __vasan_unlock()
 {
-	asm volatile("" ::: "memory");
+	__asm__ __volatile__("" ::: "memory");
 	spinlock = 0;
 }
 
@@ -516,16 +516,16 @@ static unsigned char __vasan_init()
 	// make global state init thread safe
 	__vasan_lock();
 	
-	if (vasan_stack)
-	{
-		__vasan_unlock();
-		return 1;
-	}
-
 	vasan_initialized = 1;
 	vasan_stack = __vasan_stack_new();
 	vasan_map   = __vasan_hashmap_new();
 	no_recurse  = 0;
+
+	if (fp)
+	{
+		__vasan_unlock();
+		return;
+	}
 
 	char *home = getenv("VASAN_ERR_LOG_PATH");
 
@@ -546,6 +546,11 @@ static unsigned char __vasan_init()
 
 	if (!fp)
 		fp = stderr;
+
+	char* disabled = getenv("VASAN_NO_ERROR_REPORTING");
+
+	if (disabled && strcmp(disabled, "0"))
+		fp = (FILE*)0;
 
 	__vasan_unlock();
     return 1;
@@ -689,7 +694,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 			info->args_ptr++;
 			return;
 		}
-		else
+		else if (fp)
 		{
 			// Temporarily disable recursion so we can safely call fprintf
 			no_recurse = 1;			
@@ -706,7 +711,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 				exit(-1);
 		}
 	}
-	else
+	else if (fp)
 	{
 		no_recurse = 1;
 		(fprintf)(fp, "--------------------------\n");
