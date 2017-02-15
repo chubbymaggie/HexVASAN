@@ -8,14 +8,14 @@ add_custom_target(vasan_backtrace)
 add_compiler_rt_runtime(clang_rt.vasan
         STATIC
         ARCHS x86_64 
-        SOURCES vasan.c stack.c hashmap.c
+        SOURCES vasan.c
         CFLAGS ${VASAN_CFLAGS} -fvisibility=default -DNO_BACKTRACE
         PARENT_TARGET vasan)
 
 add_compiler_rt_runtime(clang_rt.vasan_backtrace
         STATIC
         ARCHS x86_64 
-        SOURCES vasan.c stack.c hashmap.c
+        SOURCES vasan.c
         CFLAGS ${VASAN_CFLAGS} -fvisibility=default
         PARENT_TARGET vasan_backtrace)
 
