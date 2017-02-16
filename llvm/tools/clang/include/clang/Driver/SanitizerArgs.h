@@ -52,6 +52,7 @@ class SanitizerArgs {
 	bool needsVASANBacktraceRt() const { return Sanitizers.has(SanitizerKind::VASANBacktrace); }
 	bool needsVASANCallerRt() const { return Sanitizers.has(SanitizerKind::VASANCaller); }
 	bool needsVACheckerRt() const { return Sanitizers.has(SanitizerKind::VAChecker); }
+  	bool needsVASANLibcRt() const { return Sanitizers.has(SanitizerKind::VASANLibc); }
   bool needsLsanRt() const {
     return Sanitizers.has(SanitizerKind::Leak) &&
            !Sanitizers.has(SanitizerKind::Address);

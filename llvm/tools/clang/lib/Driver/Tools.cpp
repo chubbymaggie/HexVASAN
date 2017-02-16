@@ -3109,11 +3109,16 @@ static void linkSanitizerRuntimeDeps(const ToolChain &TC,
   // There's no libdl on FreeBSD.
   if (TC.getTriple().getOS() != llvm::Triple::FreeBSD)
     CmdArgs.push_back("-ldl");
-  else if (TC.getSanitizerArgs().needsVASANBacktraceRt() || 
-		   TC.getSanitizerArgs().needsVASANStatsRt()) {
+  else if (TC.getSanitizerArgs().needsVASANLibcRt()) {
     CmdArgs.push_back("-lexecinfo");
     CmdArgs.push_back("-lelf");
 	}
+  else if (TC.getSanitizerArgs().needsVASANRt() ||
+		   TC.getSanitizerArgs().needsVASANBacktraceRt() ||
+		   TC.getSanitizerArgs().needsVASANStatsRt())
+  {
+	  CmdArgs.push_back("-lstdc++");
+  }
 }
 
 static void
@@ -3132,13 +3137,12 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   if (SanArgs.needsStatsRt())
     StaticRuntimes.push_back("stats_client");
 
-  if (SanArgs.needsVASANBacktraceRt())
-	  StaticRuntimes.push_back("vasan_backtrace");
-  else if (SanArgs.needsVASANStatsRt())
-	  StaticRuntimes.push_back("vasan_stats");
-  else if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
-	  StaticRuntimes.push_back("vasan");
-  
+  // Only link into shared libs if someone passes -fsanitize=vasan-libc
+  if (SanArgs.needsVASANLibcRt())
+    StaticRuntimes.push_back("vasan_backtrace");
+
+
+ 
   // Collect static runtimes.
   if (Args.hasArg(options::OPT_shared) || TC.getTriple().isAndroid()) {
     // Don't link static runtimes into DSOs or if compiling for Android.
@@ -3167,25 +3171,33 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     if (SanArgs.linkCXXRuntimes())
       StaticRuntimes.push_back("tsan_cxx");
   }
-/*  if (SanArgs.needsUbsanRt()) {
+  if (SanArgs.needsUbsanRt()) {
     StaticRuntimes.push_back("ubsan_standalone");
     if (SanArgs.linkCXXRuntimes())
       StaticRuntimes.push_back("ubsan_standalone_cxx");
   }
-*/
+
   if (SanArgs.needsSafeStackRt())
     StaticRuntimes.push_back("safestack");
   if (SanArgs.needsCfiRt())
     StaticRuntimes.push_back("cfi");
   if (SanArgs.needsCfiDiagRt()) {
     StaticRuntimes.push_back("cfi_diag");
-//    if (SanArgs.linkCXXRuntimes())
-	//    StaticRuntimes.push_back("ubsan_standalone_cxx");
+  if (SanArgs.linkCXXRuntimes())
+    StaticRuntimes.push_back("ubsan_standalone_cxx");
   }
   if (SanArgs.needsStatsRt()) {
     NonWholeStaticRuntimes.push_back("stats");
     RequiredSymbols.push_back("__sanitizer_stats_register");
   }
+
+  if (SanArgs.needsVASANBacktraceRt())
+    StaticRuntimes.push_back("vasan_backtrace");
+  else if (SanArgs.needsVASANStatsRt())
+    StaticRuntimes.push_back("vasan_stats");
+  else if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
+    StaticRuntimes.push_back("vasan");
+
 	
   if (SanArgs.needsEsanRt())
     StaticRuntimes.push_back("esan");

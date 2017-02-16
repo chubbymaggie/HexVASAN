@@ -8,6 +8,7 @@
 //#include "vasan.h"
 //#include "stack.h"
 //#include "hashmap.h"
+#include <pthread.h>
 
 #define DEBUG
 #define MAXPATH 1000
@@ -79,6 +80,11 @@ struct stack_t
 	struct stack_elem_t* top;
 };
 
+struct tinfo 
+{
+	void *(*real_start_routine)(void *);
+	void *real_start_routine_arg;
+};
 
 static inline unsigned char __vasan_stack_empty(struct stack_t* stack);
 static inline void __vasan_stack_push(struct stack_t* stack, void* data);
@@ -135,7 +141,6 @@ static inline int __vasan_hashmap_length(map_t in);
 
 // only holds the call site info
 static __thread struct stack_t* vasan_stack;
-static __thread unsigned char no_recurse;
 
 // maps va_lists onto their call site info
 static __thread map_t vasan_map;
@@ -159,8 +164,12 @@ static unsigned char logging_only = 0;
 static FILE* fp = (FILE*)0;
 
 // When set to 1, it's safe to access the global state
-static __thread unsigned char vasan_initialized = 0;
+static unsigned char vasan_initialized = 0;
 
+/// Thread data for the cleanup handler
+static pthread_key_t thread_cleanup_key;
+
+static int (*real_pthread_create) (pthread_t *, const pthread_attr_t *, void *(*)(void*), void *);
 
 static void __vasan_backtrace()
 {
@@ -197,18 +206,15 @@ static inline unsigned char __vasan_stack_empty(struct stack_t* stack)
 
 static inline void __vasan_stack_push(struct stack_t* stack, void* data)
 {
-	if (stack)
-	{
-		struct stack_elem_t* elem = (struct stack_elem_t*)malloc(sizeof(struct stack_elem_t));
-		elem->data = data;
-		elem->next = stack->top;
-		stack->top = elem;
-	}
+	struct stack_elem_t* elem = (struct stack_elem_t*)malloc(sizeof(struct stack_elem_t));
+	elem->data = data;
+	elem->next = stack->top;
+	stack->top = elem;
 }
 
 static inline void* __vasan_stack_pop(struct stack_t* stack)
 {
-	if (stack && stack->top)
+	if (stack->top)
 	{
 		struct stack_elem_t* elem = stack->top;
 		void* result = elem->data;
@@ -222,7 +228,7 @@ static inline void* __vasan_stack_pop(struct stack_t* stack)
 
 static inline void* __vasan_stack_top(struct stack_t* stack)
 {
-	if (stack && stack->top)
+	if (stack->top)
 		return stack->top->data;
 	return (void*)0;		
 }
@@ -236,19 +242,17 @@ static inline struct stack_t* __vasan_stack_new()
 
 static inline void __vasan_stack_free(struct stack_t* stack)
 {
-	if (stack)
-	{
-		while(stack->top)
-			(void)__vasan_stack_pop(stack);
-		free(stack);
-		stack = (struct stack_t*)0;
-	}
+	while(stack->top)
+		(void)__vasan_stack_pop(stack);
+	free(stack);
+	stack = (struct stack_t*)0;
 }
 
 /*
  * Return an empty hashmap, or NULL on failure.
  */
-static inline map_t __vasan_hashmap_new() {
+static inline map_t __vasan_hashmap_new() 
+{
 	hashmap_map* m = (hashmap_map*) malloc(sizeof(hashmap_map));
 	if(!m) goto err;
 
@@ -268,7 +272,8 @@ err:
 /*
  * Hashing function for an integer
  */
-static inline unsigned int __vasan_hashmap_hash_int(hashmap_map * m, unsigned int key){
+static inline unsigned int __vasan_hashmap_hash_int(hashmap_map * m, unsigned int key)
+{
 	/* Robert Jenkins' 32 bit Mix Function */
 	key += (key << 12);
 	key ^= (key >> 22);
@@ -289,7 +294,8 @@ static inline unsigned int __vasan_hashmap_hash_int(hashmap_map * m, unsigned in
  * Return the integer of the location in data
  * to store the point to the item, or MAP_FULL.
  */
-static inline int __vasan_hashmap_hash(map_t in, int key){
+static inline int __vasan_hashmap_hash(map_t in, int key)
+{
 	int curr;
 	int i;
 
@@ -319,7 +325,8 @@ static inline int __vasan_hashmap_hash(map_t in, int key){
 /*
  * Doubles the size of the hashmap, and rehashes all the elements
  */
-static inline int __vasan_hashmap_rehash(map_t in){
+static inline int __vasan_hashmap_rehash(map_t in)
+{
 	int i;
 	int old_size;
 	hashmap_element* curr;
@@ -354,7 +361,8 @@ static inline int __vasan_hashmap_rehash(map_t in){
 /* 
  * Add a pointer to the hashmap with some key
  */
-static inline int __vasan_hashmap_put(map_t in, int key, any_t value){
+static inline int __vasan_hashmap_put(map_t in, int key, any_t value)
+{
 	int index;
 	hashmap_map* m;
 
@@ -382,7 +390,8 @@ static inline int __vasan_hashmap_put(map_t in, int key, any_t value){
 /*
  * Get your pointer out of the hashmap with a key
  */
-static inline int __vasan_hashmap_get(map_t in, int key, any_t *arg){
+static inline int __vasan_hashmap_get(map_t in, int key, any_t *arg)
+{
 	int curr;
 	int i;
 	hashmap_map* m;
@@ -413,7 +422,8 @@ static inline int __vasan_hashmap_get(map_t in, int key, any_t *arg){
 /*
  * Get a random element from the hashmap
  */
-static inline int __vasan_hashmap_get_one(map_t in, any_t *arg, int remove){
+static inline int __vasan_hashmap_get_one(map_t in, any_t *arg, int remove)
+{
 	int i;
 	hashmap_map* m;
 
@@ -443,7 +453,8 @@ static inline int __vasan_hashmap_get_one(map_t in, any_t *arg, int remove){
  * additional any_t argument is passed to the function as its first
  * argument and the hashmap element is the second.
  */
-static inline int __vasan_hashmap_iterate(map_t in, PFany f, any_t item) {
+static inline int __vasan_hashmap_iterate(map_t in, PFany f, any_t item) 
+{
 	int i;
 
 	/* Cast the hashmap */
@@ -469,7 +480,8 @@ static inline int __vasan_hashmap_iterate(map_t in, PFany f, any_t item) {
 /*
  * Remove an element with that key from the map
  */
-static inline int __vasan_hashmap_remove(map_t in, int key){
+static inline int __vasan_hashmap_remove(map_t in, int key)
+{
 	int i;
 	int curr;
 	hashmap_map* m;
@@ -500,53 +512,57 @@ static inline int __vasan_hashmap_remove(map_t in, int key){
 }
 
 /* Deallocate the hashmap */
-static inline void __vasan_hashmap_free(map_t in){
+static inline void __vasan_hashmap_free(map_t in)
+{
 	hashmap_map* m = (hashmap_map*) in;
 	free(m->data);
 	free(m);
 }
 
 /* Return the length of the hashmap */
-static inline int __vasan_hashmap_length(map_t in){
+static inline int __vasan_hashmap_length(map_t in)
+{
 	hashmap_map* m = (hashmap_map *) in;
 	if(m != NULL) return m->size;
 	else return 0;
 }
 
+/// Thread-specific data destructor
+static void thread_cleanup_handler(void *_iter) 
+{
+	__vasan_stack_free(vasan_stack);
+	__vasan_hashmap_free(vasan_map);
+}
 
-// We have to refuse to initialize until TLS is active
-static void __vasan_init()
+static void __attribute__((constructor(0)))  __vasan_init()
 {
 	char path[MAXPATH];
 
-	// make global state init thread safe
-	__vasan_lock();
-	
-	vasan_initialized = 1;
+	// Thread-local state must be initialized for every thread
 	vasan_stack = __vasan_stack_new();
 	vasan_map   = __vasan_hashmap_new();
-	no_recurse  = 0;
 
-	if (fp)
+	// But global state only once.... Make sure it happens safely
+	__vasan_lock();
+
+	if(vasan_initialized)
 	{
 		__vasan_unlock();
-		return 0;
+		return;
 	}
 
+	// Initialize pthread interceptors for thread allocation
+	*(void**)&real_pthread_create = dlsym(RTLD_NEXT, "pthread_create");
+	
+	// Setup the cleanup handler
+	pthread_key_create(&thread_cleanup_key, thread_cleanup_handler);
+	
 	char *home = getenv("VASAN_ERR_LOG_PATH");
-
-	if (home != 0)
+	if (home)
 	{
 		strcpy(path, home);
 		strcat(path, "error.txt");
-
-		// open log file and remember the fp. fopen is a vararg func. We must
-		// ensure that it doesn't recursively call __vasan_init
-		no_recurse = 1;
 		fp = fopen(path, "a+");
-		no_recurse = 0;
-
-		// remember the fp
 		logging_only = 1;
 	}
 
@@ -556,28 +572,20 @@ static void __vasan_init()
 	char* disabled = getenv("VASAN_NO_ERROR_REPORTING");
 
 	if (disabled && strcmp(disabled, "0"))
+	  {
 		fp = (FILE*)0;
+	  }
 
+	vasan_initialized = 1;
 	__vasan_unlock();
 }
 
 static void __attribute__((destructor)) __vasan_fini()
 {
-	// TODO: Do a proper cleanup here
-	
-	/*
-	stack_free(vasan_stack);
-	if (callsite_cnt)
-	hashmap_free(callsite_cnt);
-	if (vfunc_cnt)
-	hashmap_free(vfunc_cnt);
-	*/
 #ifdef VASAN_STATISTICS
-	no_recurse = 1;
 	fprintf(stderr, "vararg calls: %llu\n", vararg_calls);
 	fprintf(stderr, "vararg checks: %llu\n", vararg_checks);
 	fprintf(stderr, "vararg violations: %llu\n", vararg_violations);
-	no_recurse = 0;
 #endif
 
 	if (fp && fp != stderr)
@@ -591,9 +599,6 @@ static void __attribute__((destructor)) __vasan_fini()
 void
 __vasan_info_push(struct vasan_type_info_tmp *x)
 {
-	if (!vasan_initialized)
-		__vasan_init();
-
 #ifdef VASAN_STATISTICS
 	__atomic_add_fetch(&vararg_calls, 1, __ATOMIC_RELAXED);
 #endif
@@ -605,13 +610,7 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 // and store it in the vasan map
 void
 __vasan_vastart(va_list* list)
-{	
-	if (!vasan_initialized)
-		__vasan_init();
-
-	if (no_recurse)
-		return;
-
+{
 	struct vasan_type_info_tmp* latest = __vasan_stack_top(vasan_stack);
 
 	if (!latest)
@@ -634,12 +633,6 @@ __vasan_vastart(va_list* list)
 void
 __vasan_vaend(va_list* list)
 {
-	if (!vasan_initialized)
-		__vasan_init();
-
-	if (no_recurse)
-		return;
-
 	struct vasan_type_info_full* info;
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) != MAP_MISSING)
 	{
@@ -652,12 +645,6 @@ __vasan_vaend(va_list* list)
 void
 __vasan_vacopy(va_list* src, va_list* dst)
 {
-	if (!vasan_initialized)
-		__vasan_init();
-
-	if (no_recurse)
-		return;
-
 	struct vasan_type_info_full* src_info, *dst_info;
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)src, (any_t*)&src_info) == MAP_MISSING)
 		return;
@@ -677,9 +664,6 @@ __vasan_vacopy(va_list* src, va_list* dst)
 void
 __vasan_info_pop(int i)
 {
-	if (!vasan_initialized)
-		__vasan_init();
-
 	__vasan_stack_pop(vasan_stack);
 }
 
@@ -689,12 +673,6 @@ __vasan_info_pop(int i)
 void
 __vasan_check_index_new(va_list* list, unsigned long type)
 {
-	if (!vasan_initialized)
-		__vasan_init();
-
-	if (no_recurse)
-		return;
-
 #ifdef VASAN_STATISTICS
 	__atomic_add_fetch(&vararg_checks, 1, __ATOMIC_RELAXED);
 #endif
@@ -721,7 +699,6 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 			if (fp)
 			{
 				// Temporarily disable recursion so we can safely call fprintf
-				no_recurse = 1;			
 				(fprintf)(fp, "--------------------------\n");
 				(fprintf)(fp, "Error: Type Mismatch \n");
 				(fprintf)(fp, "Index is %lu \n", index);
@@ -729,7 +706,6 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 				(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
 				fflush(fp);
 				__vasan_backtrace();
-				no_recurse = 0;
 
 				if (!logging_only)
 					exit(-1);
@@ -743,13 +719,11 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 #endif
 		if (fp)
 		{
-			no_recurse = 1;
 			(fprintf)(fp, "--------------------------\n");
 			(fprintf)(fp, "Error: Index greater than Argument Count \n");
 			(fprintf)(fp, "Index is %d \n", index);
 			fflush(fp);
 			__vasan_backtrace();
-			no_recurse = 0;
 
 			if (!logging_only)
 				exit(-1);
@@ -757,4 +731,35 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 	}
 
 	info->args_ptr++;
+}
+
+
+static void *thread_start(void *arg) 
+{
+	struct tinfo *tinfo = (struct tinfo *)arg;
+
+	void *(*start_routine)(void *) = tinfo->real_start_routine;
+	void *start_routine_arg = tinfo->real_start_routine_arg;
+	free(tinfo);
+
+	__vasan_init();
+
+	// Make sure out thread-specific destructor will be called
+	// FIXME: we can do this only any other specific key is set by
+	// intercepting the pthread_setspecific function itself
+	pthread_setspecific(thread_cleanup_key, (void *)1);
+
+	return start_routine(start_routine_arg);
+}
+
+// overrides thread start func
+int pthread_create (pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg) 
+{
+	struct tinfo* tinfo = (struct tinfo*)malloc(sizeof(struct tinfo));
+	tinfo->real_start_routine = start_routine;
+	tinfo->real_start_routine_arg = arg;
+
+	if (!real_pthread_create)
+	  *(void**)&real_pthread_create = dlsym(RTLD_NEXT, "pthread_create");
+	return real_pthread_create(thread, attr, thread_start, tinfo);
 }
