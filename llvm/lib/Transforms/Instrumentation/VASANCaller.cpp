@@ -41,46 +41,85 @@ extern std::map<llvm::Value *, long int> variadic_map;
 using namespace llvm;
 using std::string;
 
-namespace {
+namespace
+{
+	// =====  Hash Calculation Function ==============
+	uint64_t hashing(uint64_t OldHash, uint64_t NewData) {
 
-struct VASANCaller : public ModulePass {
+		NewData = OldHash + NewData;
+		return NewData;
+	}
+	
+	// =====  Hash Calculation Function ==============
+	uint64_t hashType(Type *T, Value *V) {
 
-  static char ID;
-  VASANCaller() : ModulePass(ID) {}
+		uint64_t Result = 0;
 
-  bool doInitialization(Module &M) { return true; }
+		if (LoadInst *dl = dyn_cast<LoadInst>(V)) {
+			if (GetElementPtrInst *gepinst =
+				dyn_cast<GetElementPtrInst>((dl->getOperand(0)))) {
+				if (BitCastInst *binst = dyn_cast<BitCastInst>(gepinst->getOperand(0))) {
 
-  bool doFinalization(Module &M) { return false; }
-  uint64_t hashType(Type *T, Value *V);
+					if (binst->getOperand(0)
+						->getType()
+						->getPointerElementType()
+						->isStructTy()) {
+						Result = 13;
+						return Result;
+					}
+				}
+			}
+		}
 
-  uint64_t hashing(uint64_t OldHash, uint64_t NewData);
-  uint32_t file_rand = rand();
+		if (T->getTypeID() == 15) {
 
-  std::string file_r = std::to_string(file_rand);
-  virtual bool runOnModule(Module &M) {
+			if (T->getPointerElementType()) {
+				if (T->getPointerElementType()->getTypeID() == 13) {
 
-    Module *N_M;
-    N_M = &M;
-    LLVMContext &Ctx = M.getContext();
+					Result = 13;
+					return Result;
+				}
 
-    srand(time(0));
+			}
+			Result = 15;
+			return Result;
 
-    Type *VoidTy = Type::getVoidTy(Ctx);
-    Type *Int64Ty = Type::getInt64Ty(Ctx);
-    Type *Int32Ty = Type::getInt32Ty(Ctx);
+		} else {
+			Result = hashing(Result, T->getTypeID());
 
-    Type *Int64PtrTy = PointerType::getUnqual(Type::getInt64Ty(Ctx));
+			if (T->isIntegerTy()) {
+				Result = hashing(Result, T->getIntegerBitWidth());
+			}
+			if (T->isFloatingPointTy()) {
+				Result = hashing(Result, T->getFPMantissaWidth());
+			}
+		}
 
-    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+		return Result;
+	}
+}
 
-      for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
-        BasicBlock &b = *BB;
-        for (BasicBlock::iterator i = b.begin(), ie = b.end(); i != ie; ++i) {
+namespace llvm
+{
+	struct VASANCallerVisitor : public InstVisitor<VASANCallerVisitor>
+	{
+	public:
+		VASANCallerVisitor(Module& mod) : M(mod), Ctx(mod.getContext())
+		{
+			VoidTy = Type::getVoidTy(Ctx);
+			Int64Ty = Type::getInt64Ty(Ctx);
+			Int32Ty = Type::getInt32Ty(Ctx);			
+			Int64PtrTy = PointerType::getUnqual(Type::getInt64Ty(Ctx));
+			file_rand = rand();
+			file_r  = std::to_string(file_rand);
+		}
 
-          if (CallInst *call_inst = dyn_cast<CallInst>(&*i)) {
-            bool indirect = false;
+		template <typename InstType> void handleInst(InstType& I)
+		{
+			auto getcallvalue = I.getCalledValue();
 
-            auto getcallvalue = call_inst->getCalledValue();
+			bool indirect = false;
+
             while (auto bitcst = dyn_cast<ConstantExpr>(getcallvalue)) {
               if (bitcst->isCast()) {
                 getcallvalue = bitcst->getOperand(0);
@@ -96,25 +135,28 @@ struct VASANCaller : public ModulePass {
                 cast<FunctionType>(getft->getPointerElementType());
 
             if ((FT->isVarArg())) {
-
               uint64_t random = rand();
               Constant *id = ConstantInt::get(Type::getInt64Ty(Ctx), random);
+
+//			  errs() << "Found Vararg Call:\n";
+//			  I.dump();
 
               std::string str;
               llvm::raw_string_ostream rso(str);
               unsigned line_no;
               std::string file_name;
-              if (MDNode *md = call_inst->getMetadata("dbg")) {
+              if (MDNode *md = I.getMetadata("dbg")) {
                 if (DILocation *dl = dyn_cast<DILocation>(md)) {
                   line_no = dl->getLine();
                   file_name = dl->getFilename();
                 }
               }
+			  
               if (getenv("VASAN_C_LOG_PATH") != nullptr) {
 
                 char *home = getenv("VASAN_C_LOG_PATH");
 
-                call_inst->getFunctionType()->print(rso);
+                I.getFunctionType()->print(rso);
                 std::string pathname = home + file_r + "callsite.csv";
                 std::ofstream f_callsite;
                 f_callsite.open(pathname,
@@ -128,7 +170,7 @@ struct VASANCaller : public ModulePass {
 
                 f_callsite << random << "\t ---------------"
                            << "\t" << rso.str() << "\t" << _dir << "\t"
-                           << call_inst->getNumArgOperands() << "\t" << line_no
+                           << I.getNumArgOperands() << "\t" << line_no
                            << "\t" << file_name << "\t"
                            << "\n";
 
@@ -136,15 +178,15 @@ struct VASANCaller : public ModulePass {
               }
 
               //================================================
-              FunctionType *FTypee = call_inst->getFunctionType();
+              FunctionType *FTypee = I.getFunctionType();
               ArrayType *arr_type =
-                  ArrayType::get(Int64Ty, (call_inst->getNumArgOperands() -
+                  ArrayType::get(Int64Ty, (I.getNumArgOperands() -
                                            FTypee->getNumParams()));
 
               std::vector<Constant *> arg_types;
-              int i = 1;
+              unsigned i = 1;
               uint64_t result_hash = 0;
-              for (Value *arg_value : call_inst->arg_operands()) {
+              for (Value *arg_value : I.arg_operands()) {
                 if (i > (FTypee->getNumParams())) {
                   result_hash = hashType(arg_value->getType(), arg_value);
                   // errs() << "Caller: Resulting Hash is " << result_hash <<
@@ -157,7 +199,7 @@ struct VASANCaller : public ModulePass {
               }
 
               Constant *arg_c = ConstantInt::get(
-                  Type::getInt64Ty(Ctx), ((call_inst->getNumArgOperands()) -
+                  Type::getInt64Ty(Ctx), ((I.getNumArgOperands()) -
                                           (FTypee->getNumParams())));
               Constant *Init_array = ConstantArray::get(arr_type, arg_types);
               GlobalVariable *type_array = new GlobalVariable(
@@ -174,90 +216,82 @@ struct VASANCaller : public ModulePass {
                   ConstantExpr::getPointerCast(type_array, Int64PtrTy);
               struct_node->setInitializer(ConstantStruct::get(
                   struct_ty, {id, arg_c, array_ty_int})); // FIXME
-
-              IRBuilder<> Builder(call_inst);
+			  
+              IRBuilder<> Builder(&I);
               Value *Param[] = {struct_node};
-              Constant *GInit = N_M->getOrInsertFunction(
+              Constant *GInit = M.getOrInsertFunction(
                   "__vasan_info_push", VoidTy, struct_node->getType(), nullptr);
               Builder.CreateCall(GInit, Param);
 
-              int value = 0;
-              IRBuilder<> builder(call_inst->getNextNode());
-              Value *Param2 = {ConstantInt::get(Int32Ty, value)};
-              Constant *GFin = N_M->getOrInsertFunction("__vasan_info_pop", VoidTy,
-                                                        Int32Ty, nullptr);
-              builder.CreateCall(GFin, Param2);
+			  int value = 0;
+			  Value *Param2 = {ConstantInt::get(Int32Ty, value)};
+			  Constant *GFin = M.getOrInsertFunction("__vasan_info_pop", VoidTy,
+													 Int32Ty, nullptr);
+
+			  if (dyn_cast<InvokeInst>(&I))
+			  {
+				  InvokeInst* Invoke = dyn_cast<InvokeInst>(&I);
+				  // Instrument landing pad instead
+				  Builder.SetInsertPoint(Invoke->getSuccessor(1)->getFirstNonPHI()->getNextNode());
+				  Builder.CreateCall(GFin, Param2);
+			  }
+			  else
+			  {
+
+				  Builder.SetInsertPoint(I.getNextNode());
+				  Builder.CreateCall(GFin, Param2);
+			  }
             }
-          }
-        }
-      }
-    }
+		}
+
+		void visitCallInst(CallInst& I)
+		{
+			handleInst<CallInst>(I);
+		}
+
+		void visitInvokeInst(InvokeInst& I)
+		{
+			handleInst<InvokeInst>(I);
+		}
+
+		Module& M;
+		LLVMContext &Ctx;
+		Type *VoidTy;
+		Type *Int64Ty;
+		Type *Int32Ty;	   
+		Type *Int64PtrTy;
+		uint32_t file_rand;	   
+		std::string file_r;
+	};
+}
+
+
+namespace {
+
+struct VASANCaller : public ModulePass {
+
+  static char ID;
+  VASANCaller() : ModulePass(ID) {}
+
+  bool doInitialization(Module &M) { return true; }
+
+  bool doFinalization(Module &M) { return false; }
+  virtual bool runOnModule(Module &M) {
+    srand(time(0));
+
+	VASANCallerVisitor V(M);
+	V.visit(M);
 
     return false;
   }
 
   virtual bool runOnFunction(Function &F) { return false; }
 };
-// =====  Hash Calculation Function ==============
-
-uint64_t VASANCaller::hashType(Type *T, Value *V) {
-
-  uint64_t Result = 0;
-
-  if (LoadInst *dl = dyn_cast<LoadInst>(V)) {
-    if (GetElementPtrInst *gepinst =
-            dyn_cast<GetElementPtrInst>((dl->getOperand(0)))) {
-      if (BitCastInst *binst = dyn_cast<BitCastInst>(gepinst->getOperand(0))) {
-
-        if (binst->getOperand(0)
-                ->getType()
-                ->getPointerElementType()
-                ->isStructTy()) {
-          Result = 13;
-          return Result;
-        }
-      }
-    }
-  }
-
-  if (T->getTypeID() == 15) {
-
-    if (T->getPointerElementType()) {
-      if (T->getPointerElementType()->getTypeID() == 13) {
-
-        Result = 13;
-        return Result;
-      }
-
-    }
-      Result = 15;
-      return Result;
-
-  } else {
-    Result = hashing(Result, T->getTypeID());
-
-    if (T->isIntegerTy()) {
-      Result = hashing(Result, T->getIntegerBitWidth());
-    }
-    if (T->isFloatingPointTy()) {
-      Result = hashing(Result, T->getFPMantissaWidth());
-    }
-  }
-
-  return Result;
-}
-
-// =====  Hash Calculation Function ==============
-uint64_t VASANCaller::hashing(uint64_t OldHash, uint64_t NewData) {
-
-  NewData = OldHash + NewData;
-  return NewData;
-}
 }
 
 // register pass
 char VASANCaller::ID = 0;
 
-INITIALIZE_PASS(VASANCaller, "VASANCaller", "VASANCaller", false, false);
+INITIALIZE_PASS(VASANCaller, "VASANCaller", "VASANCaller", false, false)
 
 ModulePass *llvm::createVASANCallerPass() { return new VASANCaller(); }
