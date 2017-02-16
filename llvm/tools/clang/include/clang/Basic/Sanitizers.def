@@ -77,6 +77,7 @@ SANITIZER("vptr", Vptr)
 
 SANITIZER("vasan", VASAN)
 SANITIZER("vasan-backtrace", VASANBacktrace)
+SANITIZER("vasan-stats", VASANStats)
 SANITIZER("vasan-debug", VASANDebug)
 SANITIZER("vasan-log", VASANLog)
 
@@ -115,7 +116,7 @@ SANITIZER_GROUP("undefined", Undefined,
                     FloatDivideByZero | IntegerDivideByZero | NonnullAttribute |
                     Null | ObjectSize | Return | ReturnsNonnullAttribute |
                     Shift | SignedIntegerOverflow | Unreachable | VLABound |
-                    Function | Vptr |VASAN | VASANDebug | VASANLog | VASANCaller | VASANCallerDebug | VASANCallerLog | VAChecker | VACheckerDebug | VACheckerLog | VASANBacktrace )
+                    Function | Vptr |VASAN | VASANDebug | VASANLog | VASANCaller | VASANCallerDebug | VASANCallerLog | VAChecker | VACheckerDebug | VACheckerLog | VASANBacktrace | VASANStats )
 
 // -fsanitize=undefined-trap is an alias for -fsanitize=undefined.
 SANITIZER_GROUP("undefined-trap", UndefinedTrap, Undefined)

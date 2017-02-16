@@ -4,6 +4,7 @@ set(VASAN_CFLAGS ${SANITIZER_COMMON_CFLAGS} -U_FORTIFY_SOURCE)
 
 add_custom_target(vasan)
 add_custom_target(vasan_backtrace)
+add_custom_target(vasan_stats)
 
 add_compiler_rt_runtime(clang_rt.vasan
         STATIC
@@ -19,8 +20,17 @@ add_compiler_rt_runtime(clang_rt.vasan_backtrace
         CFLAGS ${VASAN_CFLAGS} -fvisibility=default
         PARENT_TARGET vasan_backtrace)
 
+add_compiler_rt_runtime(clang_rt.vasan_stats
+        STATIC
+        ARCHS x86_64 
+        SOURCES vasan.c
+        CFLAGS ${VASAN_CFLAGS} -fvisibility=default -DVASAN_STATISTICS
+        PARENT_TARGET vasan_stats)
+
 add_sanitizer_rt_symbols(clang_rt.vasan)
 add_sanitizer_rt_symbols(clang_rt.vasan_backtrace)
+add_sanitizer_rt_symbols(clang_rt.vasan_stats)
 
 add_dependencies(compiler-rt vasan)
 add_dependencies(compiler-rt vasan_backtrace)
+add_dependencies(compiler-rt vasan_stats)

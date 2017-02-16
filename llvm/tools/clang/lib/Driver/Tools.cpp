@@ -3109,7 +3109,8 @@ static void linkSanitizerRuntimeDeps(const ToolChain &TC,
   // There's no libdl on FreeBSD.
   if (TC.getTriple().getOS() != llvm::Triple::FreeBSD)
     CmdArgs.push_back("-ldl");
-  else if (TC.getSanitizerArgs().needsVASANBacktraceRt()) {
+  else if (TC.getSanitizerArgs().needsVASANBacktraceRt() || 
+		   TC.getSanitizerArgs().needsVASANStatsRt()) {
     CmdArgs.push_back("-lexecinfo");
     CmdArgs.push_back("-lelf");
 	}
@@ -3133,6 +3134,8 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
 
   if (SanArgs.needsVASANBacktraceRt())
 	  StaticRuntimes.push_back("vasan_backtrace");
+  else if (SanArgs.needsVASANStatsRt())
+	  StaticRuntimes.push_back("vasan_stats");
   else if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
 	  StaticRuntimes.push_back("vasan");
   

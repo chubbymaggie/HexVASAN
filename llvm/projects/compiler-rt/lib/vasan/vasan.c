@@ -145,6 +145,12 @@ static __thread map_t vasan_map;
 // expect much contention
 static volatile int spinlock = 0;
 
+#ifdef VASAN_STATISTICS
+static unsigned long long vararg_calls      = 0;
+static unsigned long long vararg_checks     = 0;
+static unsigned long long vararg_violations = 0;
+#endif
+
 // if set to 1, we log violations but don't terminate
 // the program when a violation is triggered
 static unsigned char logging_only = 0;
@@ -509,7 +515,7 @@ static inline int __vasan_hashmap_length(map_t in){
 
 
 // We have to refuse to initialize until TLS is active
-static unsigned char __vasan_init()
+static void __vasan_init()
 {
 	char path[MAXPATH];
 
@@ -553,7 +559,6 @@ static unsigned char __vasan_init()
 		fp = (FILE*)0;
 
 	__vasan_unlock();
-    return 1;
 }
 
 static void __attribute__((destructor)) __vasan_fini()
@@ -567,6 +572,13 @@ static void __attribute__((destructor)) __vasan_fini()
 	if (vfunc_cnt)
 	hashmap_free(vfunc_cnt);
 	*/
+#ifdef VASAN_STATISTICS
+	no_recurse = 1;
+	fprintf(stderr, "vararg calls: %llu\n", vararg_calls);
+	fprintf(stderr, "vararg checks: %llu\n", vararg_checks);
+	fprintf(stderr, "vararg violations: %llu\n", vararg_violations);
+	no_recurse = 0;
+#endif
 
 	if (fp && fp != stderr)
 	{
@@ -582,6 +594,9 @@ __vasan_info_push(struct vasan_type_info_tmp *x)
 	if (!vasan_initialized)
 		__vasan_init();
 
+#ifdef VASAN_STATISTICS
+	__atomic_add_fetch(&vararg_calls, 1, __ATOMIC_RELAXED);
+#endif
 	__vasan_stack_push(vasan_stack, x);
 }
 
@@ -680,6 +695,10 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 	if (no_recurse)
 		return;
 
+#ifdef VASAN_STATISTICS
+	__atomic_add_fetch(&vararg_checks, 1, __ATOMIC_RELAXED);
+#endif
+
 	struct vasan_type_info_full* info;
 	if (__vasan_hashmap_get(vasan_map, (unsigned long)list, (any_t*)&info) == MAP_MISSING)
 		return;
@@ -694,15 +713,40 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 			info->args_ptr++;
 			return;
 		}
-		else if (fp)
+		else
 		{
-			// Temporarily disable recursion so we can safely call fprintf
-			no_recurse = 1;			
+#ifdef VASAN_STATISTICS
+			__atomic_add_fetch(&vararg_violations, 1, __ATOMIC_RELAXED);
+#endif
+			if (fp)
+			{
+				// Temporarily disable recursion so we can safely call fprintf
+				no_recurse = 1;			
+				(fprintf)(fp, "--------------------------\n");
+				(fprintf)(fp, "Error: Type Mismatch \n");
+				(fprintf)(fp, "Index is %lu \n", index);
+				(fprintf)(fp, "Callee Type : %lu\n", type);
+				(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+				fflush(fp);
+				__vasan_backtrace();
+				no_recurse = 0;
+
+				if (!logging_only)
+					exit(-1);
+			}
+		}
+	}
+	else
+	{
+#ifdef VASAN_STATISTICS
+		__atomic_add_fetch(&vararg_violations, 1, __ATOMIC_RELAXED);
+#endif
+		if (fp)
+		{
+			no_recurse = 1;
 			(fprintf)(fp, "--------------------------\n");
-			(fprintf)(fp, "Error: Type Mismatch \n");
-			(fprintf)(fp, "Index is %lu \n", index);
-			(fprintf)(fp, "Callee Type : %lu\n", type);
-			(fprintf)(fp, "Caller Type : %lu\n", info->types->arg_array[index]);
+			(fprintf)(fp, "Error: Index greater than Argument Count \n");
+			(fprintf)(fp, "Index is %d \n", index);
 			fflush(fp);
 			__vasan_backtrace();
 			no_recurse = 0;
@@ -710,19 +754,6 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 			if (!logging_only)
 				exit(-1);
 		}
-	}
-	else if (fp)
-	{
-		no_recurse = 1;
-		(fprintf)(fp, "--------------------------\n");
-		(fprintf)(fp, "Error: Index greater than Argument Count \n");
-        (fprintf)(fp, "Index is %d \n", index);
-		fflush(fp);
-		__vasan_backtrace();
-		no_recurse = 0;
-
-		if (!logging_only)
-			exit(-1);
 	}
 
 	info->args_ptr++;
