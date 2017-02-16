@@ -1,0 +1,21 @@
+mk_add_options MOZ_MAKE_FLAGS=-j4
+export CC=/home/priyam/usenix/tls/tls-runtime/build/bin/clang
+export CXX=/home/priyam/usenix/tls/tls-runtime/build/bin/clang++
+
+#export LDFLAGS="-fsanitize=vasan-backtrace -fsanitize=vasancaller"
+#export CFLAGS="-fsanitize=vasan-backtrace -fsanitize=vasancaller -lstdc++ "
+#export CXXFLAGS="-fsanitize=vasan-backtrace -fsanitize=vasancaller"
+
+export MOZ_LLVM_HACKS=1
+#export MOZ_DEBUG_SYMBOLS=1
+
+ac_add_options --enable-optimize="-O2"
+#ac_add_options --enable-debug
+#ac_add_options --enable-debug-symbols="-gdwarf-2"
+ac_add_options --disable-install-strip
+ac_add_options --disable-jemalloc
+ac_add_options --disable-optimize
+ac_add_options --disable-crashreporter
+ac_add_options --disable-tests
+#ac_add_options --enable-application=browser
+#ac_add_options --enable-optimize="-O2 -gline-tables-only"
