@@ -54,7 +54,6 @@ namespace
 	uint64_t hashType(Type *T, Value *V) {
 
 		uint64_t Result = 0;
-
 		if (LoadInst *dl = dyn_cast<LoadInst>(V)) {
 			if (GetElementPtrInst *gepinst =
 				dyn_cast<GetElementPtrInst>((dl->getOperand(0)))) {
@@ -94,7 +93,6 @@ namespace
 				Result = hashing(Result, T->getFPMantissaWidth());
 			}
 		}
-
 		return Result;
 	}
 }
@@ -112,6 +110,7 @@ namespace llvm
 			Int64PtrTy = PointerType::getUnqual(Type::getInt64Ty(Ctx));
 			file_rand = rand();
 			file_r  = std::to_string(file_rand);
+//			M.dump();
 		}
 
 		template <typename InstType> void handleInst(InstType& I)

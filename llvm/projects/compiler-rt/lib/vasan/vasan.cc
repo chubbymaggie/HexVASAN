@@ -274,7 +274,7 @@ __vasan_check_index_new(va_list* list, unsigned long type)
 		{
 			(fprintf)(fp, "--------------------------\n");
 			(fprintf)(fp, "Error: Index greater than Argument Count \n");
-			(fprintf)(fp, "Index is %d \n", index);
+			(fprintf)(fp, "Index is %lu \n", index);
 			fflush(fp);
 			__vasan_backtrace();
 
@@ -306,7 +306,7 @@ static void *thread_start(void *arg)
 }
 
 // overrides thread start func
-int pthread_create (pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg) 
+extern "C" int pthread_create (pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg) throw()
 {
 	struct tinfo* tinfo = (struct tinfo*)malloc(sizeof(struct tinfo));
 	tinfo->real_start_routine = start_routine;

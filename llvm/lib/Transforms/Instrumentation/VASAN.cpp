@@ -60,6 +60,20 @@ namespace
 	{
 		uint64_t Result = 0;
 		Result = hashing(Result, T->getTypeID());
+		if (T->getTypeID() == 15) {
+
+			if (T->getPointerElementType()) {
+				if (T->getPointerElementType()->getTypeID() == 13) {
+
+					Result = 13;
+					return Result;
+				}
+			}
+			Result = 15;
+			return Result;
+		}
+
+		
 		if (T->isIntegerTy())
 			Result = hashing(Result, T->getIntegerBitWidth());
 
@@ -75,7 +89,7 @@ namespace llvm
 	struct VASANVisitor : public InstVisitor<VASANVisitor>
 	{
 	public:
-		VASANVisitor(Module& M) : N_M(M) { }
+		VASANVisitor(Module& M) : N_M(M) {}
 
 		std::map<Value*, std::set<BasicBlock*>*> checked;
 
@@ -213,11 +227,18 @@ namespace llvm
 			if (listPtr->getType() != valistPtr)
 				listPtr = B.CreateBitCast(listPtr, valistPtr);
 
-			auto CollapseNode = *succ_begin(*succ_begin(BB));
+			auto CollapseNode = *succ_begin(BB);
+			while (!dyn_cast<PHINode>(CollapseNode->begin()))
+			{
+				if (!*succ_begin(CollapseNode))
+					return;
+				CollapseNode = *succ_begin(CollapseNode);
+			}
 			unsigned long type_hash = 0;
 
 			if (PHINode *phi = dyn_cast<PHINode>(CollapseNode->begin()))
-				type_hash =	hashType(phi->getType()->getPointerElementType());		 
+				type_hash =	hashType(phi->getType()->getPointerElementType());
+			
 		   
 			Constant* Func = N_M.getOrInsertFunction("__vasan_check_index_new",
 													 VoidTy, valistPtr, Int64Ty, nullptr);
