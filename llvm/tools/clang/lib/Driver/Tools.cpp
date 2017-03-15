@@ -3139,7 +3139,7 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
 
   // Only link into shared libs if someone passes -fsanitize=vasan-libc
   if (SanArgs.needsVASANLibcRt())
-    StaticRuntimes.push_back("vasan_backtrace");
+    StaticRuntimes.push_back("vasan_libc");
 
 
  
