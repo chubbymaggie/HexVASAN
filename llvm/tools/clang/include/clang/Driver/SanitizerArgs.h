@@ -47,12 +47,10 @@ class SanitizerArgs {
   bool needsSharedAsanRt() const { return AsanSharedRuntime; }
   bool needsTsanRt() const { return Sanitizers.has(SanitizerKind::Thread); }
   bool needsMsanRt() const { return Sanitizers.has(SanitizerKind::Memory); }
-	bool needsVASANRt() const { return Sanitizers.has(SanitizerKind::VASAN); }
-	bool needsVASANStatsRt() const { return Sanitizers.has(SanitizerKind::VASANStats); }
-	bool needsVASANBacktraceRt() const { return Sanitizers.has(SanitizerKind::VASANBacktrace); }
-	bool needsVASANCallerRt() const { return Sanitizers.has(SanitizerKind::VASANCaller); }
-	bool needsVACheckerRt() const { return Sanitizers.has(SanitizerKind::VAChecker); }
-  	bool needsVASANLibcRt() const { return Sanitizers.has(SanitizerKind::VASANLibc); }
+  bool needsVASANRt() const { return Sanitizers.has(SanitizerKind::VASAN); }
+  bool needsVASANStatsRt() const { return Sanitizers.has(SanitizerKind::VASANStats); }
+  bool needsVASANBacktraceRt() const { return Sanitizers.has(SanitizerKind::VASANBacktrace); }
+  bool needsVASANLibcRt() const { return Sanitizers.has(SanitizerKind::VASANLibc); }
   bool needsLsanRt() const {
     return Sanitizers.has(SanitizerKind::Leak) &&
            !Sanitizers.has(SanitizerKind::Address);

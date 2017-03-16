@@ -172,11 +172,6 @@ static void addVASANCallerPass(const PassManagerBuilder &Builder,
    PM.add(createVASANCallerPass());
 }
 
-static void addVACheckerPass(const PassManagerBuilder &Builder,
-                                    PassManagerBase &PM) {
-   PM.add(createVACheckerPass());
-}
-
 static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
   const PassManagerBuilderWrapper &BuilderWrapper =
@@ -429,47 +424,20 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                            addDataFlowSanitizerPass);
   }
 
-  	 if (LangOpts.Sanitize.has(SanitizerKind::VASANBacktrace)) {
+  	 if (LangOpts.Sanitize.has(SanitizerKind::VASANBacktrace) ||
+		 LangOpts.Sanitize.has(SanitizerKind::VASAN) || 
+		 LangOpts.Sanitize.has(SanitizerKind::VASANLibc) ||
+		 LangOpts.Sanitize.has(SanitizerKind::VASANStats)) {
    PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
                           addVASANPass);
    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                           addVASANPass);
-	 }
-	   	 if (LangOpts.Sanitize.has(SanitizerKind::VASANLibc)) {
-   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-                          addVASANPass);
-   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                          addVASANPass);
-	 }
-
-
-  	 if (LangOpts.Sanitize.has(SanitizerKind::VASANStats)) {
-   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-                          addVASANPass);
-   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                          addVASANPass);
-	 }
-
-
-	 if (LangOpts.Sanitize.has(SanitizerKind::VASAN)) {
-   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-                          addVASANPass);
-   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                          addVASANPass);
-  }
-
-	if (LangOpts.Sanitize.has(SanitizerKind::VASANCaller)) {
    PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
  			  addVASANCallerPass);
    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
  			  addVASANCallerPass);
-  }
-	if (LangOpts.Sanitize.has(SanitizerKind::VAChecker)) {
-   PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
- 			  addVACheckerPass);
-   PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
- 			  addVACheckerPass);
-  }
+
+	 }
 
   if (LangOpts.Sanitize.hasOneOf(SanitizerKind::Efficiency)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,

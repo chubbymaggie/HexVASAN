@@ -3195,7 +3195,7 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     StaticRuntimes.push_back("vasan_backtrace");
   else if (SanArgs.needsVASANStatsRt())
     StaticRuntimes.push_back("vasan_stats");
-  else if (SanArgs.needsVASANRt() || SanArgs.needsVASANCallerRt())
+  else if (SanArgs.needsVASANRt())
     StaticRuntimes.push_back("vasan");
 
 	
